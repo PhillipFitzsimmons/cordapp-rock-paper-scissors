@@ -1,0 +1,4 @@
+include 'workflows'
+include 'contracts'
+include 'rockpaperscissors'
+include 'clients'
