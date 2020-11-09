@@ -10,15 +10,23 @@ import net.corda.core.node.NodeInfo;
 import net.corda.core.node.services.Vault.Page;
 import net.corda.core.node.services.Vault.StateMetadata;
 import net.corda.core.transactions.SignedTransaction;
+import net.corda.core.utilities.NetworkHostAndPort;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.axa.RockPaperScissorsChallengeState;
 import com.axa.RockPaperScissorsFlows;
 
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.json.GsonJsonParser;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,115 +44,114 @@ public class Controller {
     public Controller(NodeRPCConnection rpc) {
         this.proxy = rpc.proxy;
     }
-
-    @GetMapping(value = "/getnodes", produces = "text/html")
-    private String getnodes() {
+    @CrossOrigin(origins = "*")
+    @GetMapping(value = "/getnodes", produces = "application/json")
+    private List getnodes() {
         List<NodeInfo> nodeinfos = this.proxy.networkMapSnapshot();
         NodeInfo thisNode = this.proxy.nodeInfo();
         NodeDiagnosticInfo thisNodeInfo = this.proxy.nodeDiagnosticInfo();
         List<CordappInfo> cordapps=thisNodeInfo.getCordapps();
-        String reply=HTML_HEAD;
-        reply+="<div style='max-width:300px; '>";
-        boolean isCurrentNode=false;
+        List list=new ArrayList<Map>();
         for (NodeInfo node : nodeinfos) {
-            String nodeName=node.getLegalIdentities().get(0).toString();
-            if (nodeName.equals(thisNode.getLegalIdentities().get(0).toString())) {
-                isCurrentNode=true;
+            Map<String, Object> map=new HashMap<String, Object>();
+            ArrayList<Map<String, Object>> identities=new ArrayList<Map<String, Object>>();
+            for (Party party : node.getLegalIdentities()) {
+                Map<String, Object> idMap=new HashMap<String, Object>();
+                idMap.put("name", party.getName());
+                idMap.put("owningKey", party.getOwningKey().toString());
+                identities.add(idMap);
             }
-            reply+="<div style='width:90%; border: solid black 1px; padding: 2px; margin: 4px; text-align:center'>";
-            reply+="<div style='width:100%;'>"+nodeName+"</div>";
-            reply+="<div style='width:100%;'>";
-            reply+=node.getAddresses().get(0);
-            reply+="</div>";
-            reply+="<div style='width:100%; text-align:center'>\n";
-            if (!isCurrentNode) {
-                String counterParty=node.getLegalIdentities().get(0).toString();
-                System.out.println("counterParty"+counterParty);
-                counterParty=counterParty.substring(counterParty.indexOf('=')+1, counterParty.indexOf(','));
-                if (counterParty.equals("Notary")) {
-                    reply+="Notary";
-                } else {
-                    reply+="<a href='issue?counterParty="+counterParty+"&choice=rock'><div style='float: left;width:30%; text-align:center'>ROCK</div></a>"+
-                    "<a href='issue?counterParty="+counterParty+"&choice=paper'><div style='float: left;width:30%; text-align:center'>PAPER</div></a>"+
-                    "<a href='issue?counterParty="+counterParty+"&choice=scissors'><div style='display:inline-block;width:30%; text-align:center'>SCISSORS</div></a>";
-                }
+            map.put("identities", identities);
+            ArrayList<String> addresses=new ArrayList<String>();
+            for (NetworkHostAndPort nhost : node.getAddresses()) {
+                addresses.add(nhost.toString());
             }
-            reply+="</div></div>";
-            isCurrentNode=false;
+            map.put("addresses", addresses);
+            map.put("isCurrentNode",""+thisNode.getLegalIdentities().get(0).toString().equals(node.getLegalIdentities().get(0).toString()));
+            List<PartyAndCertificate> parties=node.getLegalIdentitiesAndCerts();
+            List<Map> certs=new ArrayList<Map>();
+            for (PartyAndCertificate pac : parties) {
+                Map<String, String> certificateMap=new HashMap<String, String>();
+                certificateMap.put("principal", pac.getCertificate().getSubjectX500Principal().getName());
+                certificateMap.put("issuer", pac.getCertificate().getIssuerX500Principal().getName());
+                //certificateMap.put("owningKey", pac.getOwningKey().);
+                certificateMap.put("name", pac.getName().getCommonName());
+                certificateMap.put("organization", pac.getName().getOrganisation());
+                certificateMap.put("country", pac.getName().getCountry());
+                certificateMap.put("subect", pac.getCertificate().getSubjectX500Principal().getName());
+                certs.add(certificateMap);
+            }
+            map.put("certificates", certs);
+            list.add(map);
         }
-        reply+="</div>"+HTML_FOOT;
-        System.out.println("All nodes "+nodeinfos);
-        System.out.println("this node "+thisNode);
-        System.out.println("this node diagnostic "+thisNodeInfo);
-        return reply;
+        return list;
     }
-    @GetMapping(value = "/issue", produces = "text/html")
-    private String issue(@RequestParam String counterParty,@RequestParam String choice) {
-        String reply=HTML_HEAD;
-        System.out.println("issue "+counterParty);
+    @CrossOrigin(origins = "*")
+    @GetMapping(value = "/issue", produces = "application/json")
+    private Map issue(@RequestParam String counterParty,@RequestParam String escrow,@RequestParam String choice) {
         Party party=getParty(counterParty);
+        Map<String, String> reply=new HashMap<String, String>();
         try {
             SignedTransaction result = this.proxy.startFlowDynamic(RockPaperScissorsFlows.ChallengeFlow.class, party, choice).getReturnValue().get();
-            reply+="<div style:'max-width:320px; text-align:center'>Transaction id "+ result.getId() +" <br/>committed to ledger.\n " + result.getTx().getOutput(0)+"</div>";
+            reply.put("txId", result.getId().toString());
+            reply.put("committed", result.getTx().getOutput(0).toString());
         } catch (Exception e) {
-            reply+="<div style:'max-width:320px; text-align:center'>Exception "+ e +"</div>";
+            reply.put("error", e.getMessage());
+
         }
-        reply+=HTML_FOOT;
         return reply;
 
     }
-
-    @GetMapping(value = "/gettransactions", produces = "text/html")
-    private String getTransactions() {
-        String reply=HTML_HEAD;
+    @CrossOrigin(origins = "*")
+    @GetMapping(value = "/gettransactions", produces = "application/json")
+    private List<Map> getTransactions() {
         Page<RockPaperScissorsChallengeState> vaultQuery = this.proxy.vaultQuery(RockPaperScissorsChallengeState.class);
         List<StateAndRef<RockPaperScissorsChallengeState>> states=vaultQuery.getStates();
         List<StateMetadata> statesMetaData=vaultQuery.getStatesMetadata();
         System.out.println("statesMetaData"+statesMetaData);
-        reply+="<div style=''>";
+        List<Map> reply=new ArrayList<Map>();
         for (StateAndRef<RockPaperScissorsChallengeState> state : states) {
-            HashMap<String, String> map=stateToMap(state);
-            reply+="<div style='border: solid black 1px; padding: 2px; margin: 4px; text-align:center'>";
-            for (String key : map.keySet()) {
-                reply+="<div style='border-bottom:solid black 1px'>"+key+":";
-                reply+=map.get(key)+"</div><br/>";
-            }
-            reply+="<div style='cursor:pointer' class='myDIV'>...</div>";
-            String metaString="";
+            HashMap<String, Object> map=stateToMap(state);
             for (StateMetadata metadata : statesMetaData) {
                 if (metadata.getRef().getTxhash().equals(state.getRef().getTxhash())) {
-                    metaString=metadata.toString();
+                    //map.put("metadata", metadata.toString());
+                    map.put("ref", metadata.getRef().toString());
+                    map.put("recordedTime", metadata.getRecordedTime()!=null ? metadata.getRecordedTime().toEpochMilli()+"" : "");
+                    map.put("status", metadata.getStatus().toString());
+                    Map<String, String> notaryMap=new HashMap<String, String>();
+                    notaryMap.put("name", metadata.getNotary().nameOrNull().toString());
+                    notaryMap.put("publicKey", metadata.getNotary().getOwningKey().toString());
+                    map.put("notary", notaryMap);
+                    map.put("lockUpdateTime", metadata.getLockUpdateTime()!=null ? metadata.getLockUpdateTime().toEpochMilli()+"":"");
+                    map.put("relevancyStatus", metadata.getRelevancyStatus().toString());
+                    map.put("constraint", metadata.getConstraintInfo().toString());
+                    map.put("consumedTime", metadata.getConsumedTime()!=null ? metadata.getConsumedTime().toEpochMilli()+"":"");
                     break;
                 }
             }
-            reply+="<div class='hide'>"+metaString+"<br/>"+
-            state.referenced().toString()+"</div>";
-            reply+="</div>";
+            reply.add(map);
         }
-        reply+="</div>";
-        reply+="<style>\n"+
-        ".hide {\n"+
-        "  display: none;\n"+
-        "}\n"+
-        "\n"+
-        ".myDIV:hover + .hide {\n"+
-        "  display: block;\n"+
-        "  position: fixed;\n"+
-        "  background-color: white;\n"+
-        "  border: solid black 1px;\n"+
-        "  padding: 4px;\n"+
-        "}\n"+
-        "</style>";
-        reply+=HTML_FOOT;
         return reply;
     }
-    private HashMap<String, String> stateToMap(StateAndRef<RockPaperScissorsChallengeState> state) {
-        HashMap<String, String> map=new HashMap<String, String>();
-        map.put("hash",state.getRef().getTxhash().toString().substring(0,32)+"...");
+    private HashMap<String, Object> stateToMap(StateAndRef<RockPaperScissorsChallengeState> state) {
+        HashMap<String, Object> map=new HashMap<String, Object>();
+        map.put("hash",state.getRef().getTxhash().toString());
         map.put("notary", state.getState().getNotary().getName().toString());
-        map.put("challenged", state.getState().getData().getChallenged().getName().toString());
-        map.put("challenger", state.getState().getData().getChallenger().getName().toString());
-        map.put("challenger choice", state.getState().getData().getChallengerChoice());
+        Map<String, String> challengedMap=new HashMap<String, String>();
+        challengedMap.put("commonName", state.getState().getData().getChallenged().getName().getCommonName());
+        challengedMap.put("organisation", state.getState().getData().getChallenged().getName().getOrganisation());
+        challengedMap.put("organisationUnit", state.getState().getData().getChallenged().getName().getOrganisationUnit());
+        challengedMap.put("country", state.getState().getData().getChallenged().getName().getCountry());
+        challengedMap.put("principal", state.getState().getData().getChallenged().getName().getX500Principal().getName());
+        map.put("counterParty", challengedMap);
+        Map<String, String> challengerMap=new HashMap<String, String>();
+        challengerMap.put("commonName", state.getState().getData().getChallenger().getName().getCommonName());
+        challengerMap.put("organisation", state.getState().getData().getChallenger().getName().getOrganisation());
+        challengerMap.put("organisationUnit", state.getState().getData().getChallenger().getName().getOrganisationUnit());
+        challengerMap.put("country", state.getState().getData().getChallenger().getName().getCountry());
+        challengerMap.put("principal", state.getState().getData().getChallenger().getName().getX500Principal().getName());
+        map.put("party", challengerMap);
+        map.put("challengerChoice", state.getState().getData().getChallengerChoice());
 
         return map;
     }

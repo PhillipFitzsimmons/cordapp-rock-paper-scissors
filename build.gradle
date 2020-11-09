@@ -123,55 +123,60 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
     node {
         name "O=Notary,L=London,C=GB"
         notary = [validating : false]
-        p2pPort 10002
+        p2pPort 10001
         rpcSettings {
-            address("localhost:10003")
-            adminAddress("localhost:10043")
+            address("localhost:10011")
+            adminAddress("localhost:10021")
         }
+        sshdPort 2221
     }
     node {
         name "O=PartyA,L=London,C=GB"
-        p2pPort 10005
+        p2pPort 10002
         rpcSettings {
-            address("localhost:10006")
-            adminAddress("localhost:10046")
+            address("localhost:10012")
+            adminAddress("localhost:10022")
         }
+        sshdPort 2222
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
         name "O=PartyB,L=New York,C=US"
-        p2pPort 10008
+        p2pPort 10003
         rpcSettings {
-            address("localhost:10009")
-            adminAddress("localhost:10049")
+            address("localhost:10013")
+            adminAddress("localhost:10023")
         }
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
         name "O=PartyC,L=Paris,C=FR"
-        p2pPort 10093
+        p2pPort 10004
         rpcSettings {
-            address("localhost:10094")
-            adminAddress("localhost:10095")
+            address("localhost:10014")
+            adminAddress("localhost:10024")
         }
+        sshdPort 2223
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
-    node {
+    /*node {
         name "O=PartyD,L=Dublin,C=IE"
-        p2pPort 10063
+        p2pPort 10004
         rpcSettings {
-            address("localhost:10064")
-            adminAddress("localhost:10065")
+            address("localhost:10014")
+            adminAddress("localhost:10024")
         }
+        sshdPort 2224
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
     node {
         name "O=PartyE,L=Amsterdam,C=NE"
-        p2pPort 10043
+        p2pPort 10005
         rpcSettings {
-            address("localhost:10044")
-            adminAddress("localhost:10045")
+            address("localhost:10015")
+            adminAddress("localhost:10025")
         }
+        sshdPort 2225
         rpcUsers = [[ user: "user1", "password": "test", "permissions": ["ALL"]]]
-    }
+    }*/
 }

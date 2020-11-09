@@ -20,21 +20,9 @@
 		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>dev</name>
-			<type>2</type>
-			<location>/Users/phillip/Documents/Git/corda-rockpaperscissors/config/dev</location>
-		</link>
-		<link>
-			<name>test</name>
-			<type>2</type>
-			<location>/Users/phillip/Documents/Git/corda-rockpaperscissors/config/test</location>
-		</link>
-	</linkedResources>
 	<filteredResources>
 		<filter>
-			<id>1604062492714</id>
+			<id>1604674496919</id>
 			<name></name>
 			<type>30</type>
 			<matcher>

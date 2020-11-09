@@ -1,4 +1,5 @@
 {
     "vscode-corda.isCordaProject": true,
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "terminal.integrated.scrollback": 10000
 }

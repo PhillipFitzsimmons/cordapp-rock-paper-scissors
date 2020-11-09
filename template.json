@@ -1,0 +1,422 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+        "VpcFargate": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/16",
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "true"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "66fd82a1-2442-4224-a373-258780fda8f8"
+                }
+            }
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "90ebb5f4-bdb1-4a26-a647-fb48b9c5bf99"
+                }
+            }
+        },
+        "VpcGatewayAttachment": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "DependsOn": [
+                "VpcFargate",
+                "InternetGateway"
+            ],
+            "Properties": {
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                },
+                "VpcId": {
+                    "Ref": "VpcFargate"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "d3a2a002-41c5-4a67-aeda-11f86dabc18a"
+                }
+            }
+        },
+        "RouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "DependsOn": [
+                "VpcFargate"
+            ],
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VpcFargate"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "64b352a2-3664-4865-bb1a-c630063b70cd"
+                }
+            }
+        },
+        "Route": {
+            "Type": "AWS::EC2::Route",
+            "DependsOn": [
+                "VpcFargate",
+                "InternetGateway",
+                "RouteTable"
+            ],
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "RouteTable"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "ef02df06-e712-4aca-9142-6de447cce76c"
+                }
+            }
+        },
+        "SubnetFargate": {
+            "Type": "AWS::EC2::Subnet",
+            "DependsOn": [
+                "VpcFargate"
+            ],
+            "Properties": {
+                "AvailabilityZone": "us-east-1a",
+                "CidrBlock": "10.0.0.0/24",
+                "MapPublicIpOnLaunch": "true",
+                "VpcId": {
+                    "Ref": "VpcFargate"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "61fec2b2-c413-4861-b3d4-c2131283f007"
+                }
+            }
+        },
+        "SubnetRoute": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "DependsOn": [
+                "SubnetFargate",
+                "RouteTable"
+            ],
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "RouteTable"
+                },
+                "SubnetId": {
+                    "Ref": "SubnetFargate"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "074cf095-c49b-438d-a6e7-d112f7d6e3a4"
+                }
+            }
+        },
+        "SecurityGroupFargate": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "DependsOn": [
+                "VpcFargate"
+            ],
+            "Properties": {
+                "GroupDescription": "Fargate Security Group",
+                "GroupName": "Fargate-SG",
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 80,
+                        "IpProtocol": "tcp",
+                        "ToPort": 80
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 81,
+                        "IpProtocol": "tcp",
+                        "ToPort": 81
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 82,
+                        "IpProtocol": "tcp",
+                        "ToPort": 82
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 83,
+                        "IpProtocol": "tcp",
+                        "ToPort": 83
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 84,
+                        "IpProtocol": "tcp",
+                        "ToPort": 84
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 85,
+                        "IpProtocol": "tcp",
+                        "ToPort": 85
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 86,
+                        "IpProtocol": "tcp",
+                        "ToPort": 86
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 87,
+                        "IpProtocol": "tcp",
+                        "ToPort": 87
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 88,
+                        "IpProtocol": "tcp",
+                        "ToPort": 88
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTP traffic on port 80",
+                        "FromPort": 89,
+                        "IpProtocol": "tcp",
+                        "ToPort": 89
+                    },
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "Description": "Allow HTTPS traffic on port 443",
+                        "FromPort": 443,
+                        "IpProtocol": "tcp",
+                        "ToPort": 443
+                    }
+                ],
+                "VpcId": {
+                    "Ref": "VpcFargate"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "fa01458c-7c34-47f4-a15f-b5d84886d383"
+                }
+            }
+        },
+        "FargateCluster": {
+            "Type": "AWS::ECS::Cluster",
+            "Properties": {
+                "ClusterName": "Cluster-CF"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "4e83ac60-81af-49ca-a5f9-33a20cd38e51"
+                }
+            }
+        },
+        "EcsTask": {
+            "Type": "AWS::ECS::TaskDefinition",
+            "Properties": {
+                "ContainerDefinitions": [
+                    {
+                        "Name": "corda-rockpaperscissors-container",
+                        "Image": "209544401946.dkr.ecr.us-east-1.amazonaws.com/corda-rockpaperscissors:latest",
+                        "PortMappings": [
+                            {
+                                "ContainerPort": 80,
+                                "HostPort": 80,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 81,
+                                "HostPort": 81,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 82,
+                                "HostPort": 82,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 83,
+                                "HostPort": 83,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 84,
+                                "HostPort": 84,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 85,
+                                "HostPort": 85,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 86,
+                                "HostPort": 86,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 87,
+                                "HostPort": 87,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 88,
+                                "HostPort": 88,
+                                "Protocol": "tcp"
+                            },
+                            {
+                                "ContainerPort": 89,
+                                "HostPort": 89,
+                                "Protocol": "tcp"
+                            }
+                        ],
+                        "LogConfiguration": {
+                            "LogDriver": "awslogs",
+                            "Options": {
+                                "awslogs-group": "/ecs/task-medium",
+                                "awslogs-region": "us-east-1",
+                                "awslogs-stream-prefix": "ecs",
+                                "awslogs-create-group": "true"
+                            }
+                        }
+                    }
+                ],
+                "Cpu": 512,
+                "Memory": 1024,
+                "NetworkMode": "awsvpc",
+                "RequiresCompatibilities": [
+                    "FARGATE"
+                ],
+                "TaskRoleArn": {
+                    "Fn::GetAtt": [
+                        "EcsTaskRole",
+                        "Arn"
+                    ]
+                },
+                "ExecutionRoleArn": {
+                    "Fn::GetAtt": [
+                        "EcsTaskRole",
+                        "Arn"
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "created_by",
+                        "Value": "CloudFormation"
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "fb70f28b-55e3-45c8-ba75-5427685347e9"
+                }
+            }
+        },
+        "Service": {
+            "Type": "AWS::ECS::Service",
+            "DependsOn": [
+                "EcsTask",
+                "FargateCluster",
+                "SubnetFargate",
+                "SecurityGroupFargate"
+            ],
+            "Properties": {
+                "Cluster": "Cluster-CF",
+                "DeploymentConfiguration": {
+                    "MaximumPercent": 200,
+                    "MinimumHealthyPercent": 100
+                },
+                "DeploymentController": {
+                    "Type": "ECS"
+                },
+                "DesiredCount": 1,
+                "LaunchType": "FARGATE",
+                "NetworkConfiguration": {
+                    "AwsvpcConfiguration": {
+                        "AssignPublicIp": "ENABLED",
+                        "Subnets": [
+                            {
+                                "Ref": "SubnetFargate"
+                            }
+                        ],
+                        "SecurityGroups": [
+                            {
+                                "Ref": "SecurityGroupFargate"
+                            }
+                        ]
+                    }
+                },
+                "SchedulingStrategy": "REPLICA",
+                "ServiceName": "Service-CF",
+                "TaskDefinition": {
+                    "Ref": "EcsTask"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "fe4523d6-cc6f-4f3d-bdbf-e96543fbc311"
+                }
+            }
+        },
+    "EcsTaskRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": [
+                                "ec2.amazonaws.com",
+                                "ecs-tasks.amazonaws.com"
+                            ]
+                        },
+                        "Action": [
+                            "sts:AssumeRole"
+                        ]
+                    }
+                ]
+            },
+            "Policies": [
+                {
+                    "PolicyName": "root",
+                    "PolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "ecs:*",
+                                    "ecr:*",
+                                    "logs:*"
+                                ],
+                                "Resource": [
+                                    "*"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+    }
+}

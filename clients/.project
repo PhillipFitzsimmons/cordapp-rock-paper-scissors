@@ -24,7 +24,7 @@
 		<link>
 			<name>dev</name>
 			<type>2</type>
-			<location>/Users/phillip/Documents/Git/corda-rockpaperscissors/config/dev</location>
+			<location>/Users/phillip/Documents/Git/cordapp-rock-paper-scissors/config/dev</location>
 		</link>
 	</linkedResources>
 	<filteredResources>
