@@ -68,10 +68,10 @@ public class RockPaperScissorsFlows {
     public static class ChallengeFlow extends FlowLogic<SignedTransaction> {
 
         private Party sender ;
-        private Party receiver;
+        private Party challenged;
         private String choice;
-        public ChallengeFlow(Party challenged, String choice) {
-            this.receiver=challenged;
+        public ChallengeFlow(Party challenged, String choice, UniqueIdentifier uniqueIdentifier) {
+            this.challenged=challenged;
             this.choice=choice;
         }
         @Suspendable
@@ -81,7 +81,7 @@ public class RockPaperScissorsFlows {
             //TODO create our own Notary and get an instance by name
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
-            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice,sender,receiver, new UniqueIdentifier(UUID.randomUUID().toString()));
+            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice,sender,challenged, uniqueIdentifier);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
             builder.addOutputState(output);
