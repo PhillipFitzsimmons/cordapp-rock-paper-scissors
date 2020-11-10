@@ -2,10 +2,13 @@ package com.axa;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import co.paralleluniverse.fibers.Suspendable;
+import net.bytebuddy.implementation.bind.MethodDelegationBinder.BindingResolver.Unique;
 import net.corda.core.contracts.StateRef;
+import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.flows.CollectSignaturesFlow;
 import net.corda.core.flows.FinalityFlow;
 import net.corda.core.flows.FlowException;
@@ -25,6 +28,43 @@ public class RockPaperScissorsFlows {
     
     @InitiatingFlow
     @StartableByRPC
+    public static class IssueFlow extends FlowLogic<UniqueIdentifier> {
+
+        private Party sender ;
+        private Party challenged;
+        private Party escrow;
+        private String choice;
+        public IssueFlow(Party escrow, Party challenged, String choice) {
+            this.challenged=challenged;
+            this.escrow=escrow;
+            this.choice=choice;
+        }
+        @Suspendable
+        @Override
+        public UniqueIdentifier call() throws FlowException {
+            this.sender = getOurIdentity();
+            //TODO create our own Notary and get an instance by name
+            final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
+
+            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice,sender,challenged, escrow);
+            final TransactionBuilder builder = new TransactionBuilder(notary);
+
+            builder.addOutputState(output);
+            builder.addCommand(new RockPaperScissorsContract.Commands.Issue(), Arrays.asList(this.sender.getOwningKey(),this.challenged.getOwningKey()) );
+
+            builder.verify(getServiceHub());
+            final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
+            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
+            otherParties.remove(getOurIdentity());
+            List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
+            SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, sessions));
+            SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
+            return finalisedTx.getTx().outputsOfType(RockPaperScissorsIssuedState.class).get(0).getLinearId();
+        }
+        
+    }
+    @InitiatingFlow
+    @StartableByRPC
     public static class ChallengeFlow extends FlowLogic<SignedTransaction> {
 
         private Party sender ;
@@ -41,7 +81,7 @@ public class RockPaperScissorsFlows {
             //TODO create our own Notary and get an instance by name
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
-            final RockPaperScissorsChallengeState output = new RockPaperScissorsChallengeState(choice,sender,receiver);
+            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice,sender,receiver, new UniqueIdentifier(UUID.randomUUID().toString()));
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
             builder.addOutputState(output);

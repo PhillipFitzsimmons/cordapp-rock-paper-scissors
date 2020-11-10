@@ -16,7 +16,7 @@ for filename in $ALL_CONFIGS; do
         echo "Notary - not launching client" $LEGALNAME
     else
         echo launching server on port $SERVERPORT rpc $PORT user $USER password $PASSWORD $LEGALNAME
-        #./docker-starter-java.sh --server.port $SERVERPORT --config.rpc.host localhost --config.rpc.port $PORT --config.rpc.username $USER --config.rpc.password $PASSWORD &
-        sleep 0
+        ./docker-starter-java.sh --server.port $SERVERPORT --config.rpc.host localhost --config.rpc.port $PORT --config.rpc.username $USER --config.rpc.password $PASSWORD &
+        sleep 30
     fi
 done

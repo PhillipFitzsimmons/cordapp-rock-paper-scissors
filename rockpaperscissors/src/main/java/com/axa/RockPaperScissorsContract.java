@@ -30,6 +30,7 @@ public class RockPaperScissorsContract implements Contract {
     }
 
     public interface Commands extends CommandData {
+        class Issue implements Commands {}
         class Challenge implements Commands {}
     }
 

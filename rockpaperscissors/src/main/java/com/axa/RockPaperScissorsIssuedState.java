@@ -11,22 +11,31 @@ import net.corda.core.identity.AbstractParty;
 import net.corda.core.identity.Party;
 
 @BelongsToContract(RockPaperScissorsContract.class)
-public class RockPaperScissorsChallengeState implements LinearState {
+public class RockPaperScissorsIssuedState implements LinearState {
     private final String challengerChoice;
     private final Party challenger;
     private final Party challenged;
+    private final Party escrow;
     private UniqueIdentifier uniqueIdentifier;
 
     @Override
     public List<AbstractParty> getParticipants() {
-        return Arrays.asList(challenger, challenged);
+        return Arrays.asList(challenger, escrow);
     }
 
-    public RockPaperScissorsChallengeState(String challengerChoice, Party challenger, Party challenged, UniqueIdentifier uniqueIdentifier) {
+    public RockPaperScissorsIssuedState(String challengerChoice, Party challenger, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {
         this.challengerChoice = challengerChoice;
         this.challenger = challenger;
         this.challenged = challenged;
+        this.escrow=escrow;
         this.uniqueIdentifier=uniqueIdentifier;
+    }
+    public RockPaperScissorsIssuedState(String challengerChoice, Party challenger, Party challenged, Party escrow) {
+        this.challengerChoice = challengerChoice;
+        this.challenger = challenger;
+        this.challenged = challenged;
+        this.escrow=escrow;
+        this.uniqueIdentifier=new UniqueIdentifier();
     }
 
     public String getChallengerChoice() {
@@ -39,6 +48,9 @@ public class RockPaperScissorsChallengeState implements LinearState {
 
     public Party getChallenged() {
         return challenged;
+    }
+    public Party getEscrow() {
+        return escrow;
     }
 
     @Override
