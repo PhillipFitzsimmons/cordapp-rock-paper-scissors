@@ -12,8 +12,8 @@ import net.corda.core.identity.Party;
 import net.corda.core.serialization.ConstructorForDeserialization;
 
 @BelongsToContract(RockPaperScissorsContract.class)
-public class RockPaperScissorsIssuedState implements LinearState {
-    private final String challengerChoice;
+public class RockPaperScissorsAcceptedState implements LinearState {
+    private final String challengedChoice;
     private final Party challenger;
     private final Party challenged;
     private final Party escrow;
@@ -24,23 +24,25 @@ public class RockPaperScissorsIssuedState implements LinearState {
         return Arrays.asList(challenger, escrow);
     }
     @ConstructorForDeserialization
-    public RockPaperScissorsIssuedState(String challengerChoice, Party challenger, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {
-        this.challengerChoice = challengerChoice;
+    public RockPaperScissorsAcceptedState(String challengedChoice, Party challenger, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {
+        this.challengedChoice = challengedChoice;
         this.challenger = challenger;
         this.challenged = challenged;
         this.escrow=escrow;
+        System.out.println("RockPaperScissorsAcceptedState constructor "+uniqueIdentifier);
         this.uniqueIdentifier=uniqueIdentifier;
     }
-    public RockPaperScissorsIssuedState(String challengerChoice, Party challenger, Party challenged, Party escrow) {
-        this.challengerChoice = challengerChoice;
+    /*public RockPaperScissorsAcceptedState(String challengedChoice, Party challenger, Party challenged, Party escrow) {
+        this.challengedChoice = challengedChoice;
         this.challenger = challenger;
         this.challenged = challenged;
         this.escrow=escrow;
+        System.out.println("RockPaperScissorsAcceptedState constructor is being called for some reason");
         this.uniqueIdentifier=new UniqueIdentifier();
-    }
+    }*/
 
-    public String getChallengerChoice() {
-        return challengerChoice;
+    public String getChallengedChoice() {
+        return challengedChoice;
     }
 
     public Party getChallenger() {

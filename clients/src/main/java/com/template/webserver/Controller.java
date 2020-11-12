@@ -1,25 +1,38 @@
 package com.template.webserver;
 
+import net.corda.core.contracts.LinearState;
 import net.corda.core.contracts.StateAndRef;
+import net.corda.core.contracts.UniqueIdentifier;
 import net.corda.core.cordapp.CordappInfo;
 import net.corda.core.identity.Party;
 import net.corda.core.identity.PartyAndCertificate;
 import net.corda.core.messaging.CordaRPCOps;
 import net.corda.core.node.NodeDiagnosticInfo;
 import net.corda.core.node.NodeInfo;
+import net.corda.core.node.services.Vault;
 import net.corda.core.node.services.Vault.Page;
 import net.corda.core.node.services.Vault.StateMetadata;
+import net.corda.core.node.services.Vault.StateStatus;
+import net.corda.core.node.services.vault.PageSpecification;
+import net.corda.core.node.services.vault.QueryCriteria;
+import net.corda.core.node.services.vault.Sort;
+import net.corda.core.node.services.vault.SortAttribute;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.core.utilities.NetworkHostAndPort;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.axa.RockPaperScissorsAcceptedState;
 import com.axa.RockPaperScissorsChallengeState;
 import com.axa.RockPaperScissorsFlows;
+import com.axa.RockPaperScissorsIssuedState;
+import com.axa.RockPaperScissorsSettledState;
 
+import org.apache.activemq.artemis.utils.ByteUtil;
 import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +66,7 @@ public class Controller {
         List<CordappInfo> cordapps=thisNodeInfo.getCordapps();
         List list=new ArrayList<Map>();
         for (NodeInfo node : nodeinfos) {
+            System.out.println("node"+node);
             Map<String, Object> map=new HashMap<String, Object>();
             ArrayList<Map<String, Object>> identities=new ArrayList<Map<String, Object>>();
             for (Party party : node.getLegalIdentities()) {
@@ -88,13 +102,16 @@ public class Controller {
     }
     @CrossOrigin(origins = "*")
     @GetMapping(value = "/issue", produces = "application/json")
-    private Map issue(@RequestParam String counterParty,@RequestParam String escrow,@RequestParam String choice) {
+    private Map<String, String> issue(@RequestParam String counterParty,@RequestParam String escrowParty,@RequestParam String choice) {
+        System.out.println("/issue challenged:"+counterParty+" escrow:"+escrowParty);
         Party party=getParty(counterParty);
+        Party escrow=getParty(escrowParty);
+        System.out.println("/issue Parties challenged:"+party.toString()+" escrow:"+escrow.toString());
         Map<String, String> reply=new HashMap<String, String>();
         try {
-            SignedTransaction result = this.proxy.startFlowDynamic(RockPaperScissorsFlows.ChallengeFlow.class, party, choice).getReturnValue().get();
-            reply.put("txId", result.getId().toString());
-            reply.put("committed", result.getTx().getOutput(0).toString());
+            UniqueIdentifier uniqueIdentifier= this.proxy.startFlowDynamic(RockPaperScissorsFlows.IssueFlow.class, party, escrow, choice).getReturnValue().get();
+            reply.put("uniqueIdentifier", uniqueIdentifier.toString());
+            //reply.put("committed", result.getTx().getOutput(0).toString());
         } catch (Exception e) {
             reply.put("error", e.getMessage());
 
@@ -103,15 +120,104 @@ public class Controller {
 
     }
     @CrossOrigin(origins = "*")
+    @GetMapping(value = "/accept", produces = "application/json")
+    private Map<String, String> accept(@RequestParam String linearId,@RequestParam String escrowParty,@RequestParam String challenged,@RequestParam String choice) {
+        Party party=getParty(challenged);
+        Party escrow=getParty(escrowParty);
+        Map<String, String> reply=new HashMap<String, String>();
+        System.out.println("/accept linearId "+linearId);
+        try {
+            UniqueIdentifier uniqueIdentifier= this.proxy.startFlowDynamic(RockPaperScissorsFlows.AcceptChallengeFlow.class, linearId, party, escrow, choice).getReturnValue().get();
+            reply.put("uniqueIdentifier", uniqueIdentifier.toString());
+        } catch (Exception e) {
+            reply.put("error", e.getMessage());
+        }
+        return reply;
+
+    }
+    @CrossOrigin(origins = "*")
     @GetMapping(value = "/gettransactions", produces = "application/json")
-    private List<Map> getTransactions() {
-        Page<RockPaperScissorsChallengeState> vaultQuery = this.proxy.vaultQuery(RockPaperScissorsChallengeState.class);
-        List<StateAndRef<RockPaperScissorsChallengeState>> states=vaultQuery.getStates();
+    private List<Map<String, Object>> getStates() {
+        QueryCriteria criteria = new QueryCriteria.VaultQueryCriteria(StateStatus.ALL);
+        Page<LinearState> vaultQuery=this.proxy.vaultQueryByCriteria(criteria, LinearState.class);
+        List<StateAndRef<LinearState>> states=vaultQuery.getStates();
         List<StateMetadata> statesMetaData=vaultQuery.getStatesMetadata();
-        System.out.println("statesMetaData"+statesMetaData);
-        List<Map> reply=new ArrayList<Map>();
-        for (StateAndRef<RockPaperScissorsChallengeState> state : states) {
-            HashMap<String, Object> map=stateToMap(state);
+        List<Map<String, Object>> result=new ArrayList<Map<String, Object>>();
+        for (StateAndRef<LinearState> state : states) {
+            Map<String, Object> map=new HashMap<String, Object>();
+            map.put("id", state.getState().getData().getLinearId().getExternalId()!=null ? state.getState().getData().getLinearId().getExternalId() : state.getState().getData().getLinearId().getId().toString());
+            mapMetaData(state, map, statesMetaData);
+            String slass=state.getState().getData().getClass()+"";
+            if (slass.indexOf(' ')>-1) {
+                slass=slass.substring(slass.indexOf(' ')+1, slass.length());
+            }
+            map.put("class", slass);
+            result.add(map);
+        }
+        return result;
+    }
+    @CrossOrigin(origins = "*")
+    @GetMapping(value = "/getstatesbylinearid", produces = "application/json")
+    private Map<String, Map<String, Object>> getStatesByLinearId(@RequestParam String linearId) {
+        
+        QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria( null, Arrays.asList(java.util.UUID.fromString(linearId)),  null,  Vault.StateStatus.ALL,  null);
+        Page<LinearState> vaultQuery=this.proxy.vaultQueryByCriteria(criteria, LinearState.class);
+        List<StateAndRef<LinearState>> states=vaultQuery.getStates();
+        List<StateMetadata> statesMetaData=vaultQuery.getStatesMetadata();
+        System.out.println("getStatesByLinearId states "+states);
+        Map<String, Map<String, Object>> result= new HashMap<String, Map<String, Object>>();
+        for (StateAndRef<LinearState> state : states) {
+            Map<String, Object> map=new HashMap<String, Object>();
+            LinearState linearState=state.getState().getData();
+            if (linearState instanceof RockPaperScissorsIssuedState) {
+                RockPaperScissorsIssuedState issuedState=(RockPaperScissorsIssuedState)linearState;
+                map.put("challenged",partyToMap(issuedState.getChallenged()));
+                map.put("challenger",partyToMap(issuedState.getChallenger()));
+                map.put("challengerChoice",issuedState.getChallengerChoice());
+                map.put("escrow",partyToMap(issuedState.getEscrow()));
+                result.put("IssuedState", map);
+            } else if (linearState instanceof RockPaperScissorsChallengeState) {
+                RockPaperScissorsChallengeState issuedState=(RockPaperScissorsChallengeState)linearState;
+                map.put("challenged",partyToMap(issuedState.getChallenged()));
+                map.put("challenger",partyToMap(issuedState.getChallenger()));
+                map.put("escrow",partyToMap(issuedState.getEscrow()));
+                result.put("ChallengeState", map);
+            } else if (linearState instanceof RockPaperScissorsAcceptedState) {
+                RockPaperScissorsAcceptedState issuedState=(RockPaperScissorsAcceptedState)linearState;
+                map.put("challenged",partyToMap(issuedState.getChallenged()));
+                map.put("challenger",partyToMap(issuedState.getChallenger()));
+                map.put("escrow",partyToMap(issuedState.getEscrow()));
+                map.put("challengedChoice",issuedState.getChallengedChoice());
+                result.put("AcceptedState", map);
+            } else if (linearState instanceof RockPaperScissorsSettledState) {
+                RockPaperScissorsSettledState issuedState=(RockPaperScissorsSettledState)linearState;
+                map.put("challenged",partyToMap(issuedState.getChallenged()));
+                map.put("challenger",partyToMap(issuedState.getChallenger()));
+                map.put("escrow",partyToMap(issuedState.getEscrow()));
+                map.put("challengedChoice",issuedState.getChallengedChoice());
+                map.put("challengerChoice",issuedState.getChallengerChoice());
+                map.put("winner",partyToMap(issuedState.getWinner()));
+                result.put("SettledState", map);
+            }
+            map.put("linearId",linearState.getLinearId()+"");
+            mapMetaData(state, map, statesMetaData);
+        }
+
+        Map<String, Object> thisNodeMap=new HashMap<String, Object>();
+        thisNodeMap.put("name", this.proxy.nodeInfo().getLegalIdentities().get(0).toString());
+        result.put("currentNode",thisNodeMap);
+        return result;
+    }
+    private Map<String, String> partyToMap(Party party) {
+        if (party!=null) {
+            Map<String, String> map=new HashMap<String, String>();
+            map.put("name", party.nameOrNull().toString());
+            map.put("publicKey", ByteUtil.bytesToHex(party.getOwningKey().getEncoded()));
+            return map;
+        }
+        return null;
+    }
+    private void mapMetaData(StateAndRef<LinearState> state, Map<String, Object> map, List<StateMetadata> statesMetaData) {
             for (StateMetadata metadata : statesMetaData) {
                 if (metadata.getRef().getTxhash().equals(state.getRef().getTxhash())) {
                     //map.put("metadata", metadata.toString());
@@ -128,10 +234,7 @@ public class Controller {
                     map.put("consumedTime", metadata.getConsumedTime()!=null ? metadata.getConsumedTime().toEpochMilli()+"":"");
                     break;
                 }
-            }
-            reply.add(map);
         }
-        return reply;
     }
     private HashMap<String, Object> stateToMap(StateAndRef<RockPaperScissorsChallengeState> state) {
         HashMap<String, Object> map=new HashMap<String, Object>();
@@ -151,7 +254,7 @@ public class Controller {
         challengerMap.put("country", state.getState().getData().getChallenger().getName().getCountry());
         challengerMap.put("principal", state.getState().getData().getChallenger().getName().getX500Principal().getName());
         map.put("party", challengerMap);
-        map.put("challengerChoice", state.getState().getData().getChallengerChoice());
+        //map.put("challengerChoice", state.getState().getData().getChallengerChoice());
 
         return map;
     }
@@ -170,14 +273,4 @@ public class Controller {
         System.out.println("getParty"+party);
         return party;
     }
-
-    private static final String HTML_HEAD="<html><body style='text-align:center'>\n"+
-    "<meta name='viewport' content='width=device-width, initial-scale=1'>\n"+
-    "<link rel='stylesheet' href='https://www.w3schools.com/w3css/4/w3.css'>\n"+
-    "<link rel='stylesheet' href='https://www.w3schools.com/lib/w3-theme-black.css'>\n"+
-    "<link rel='stylesheet' href='https://fonts.googleapis.com/css?family=Roboto'>\n"+
-    "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'>\n"+
-    "<a href='/getnodes'><div style='width:49%;text-align:center;float:left'>nodes</div></a>\n"+
-    "<a href='/gettransactions'><div style='width:49%;text-align:center;display:inline-block'>transactions</div></a>\n";
-    private static final String HTML_FOOT="\n</body></html>";
 }

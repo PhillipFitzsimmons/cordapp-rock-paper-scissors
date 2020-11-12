@@ -16,15 +16,15 @@ public class RockPaperScissorsContract implements Contract {
         // Single command for now, but I suspect we'll be revisiting this
         final CommandWithParties<Commands> command = requireSingleCommand(tx.getCommands(), Commands.class);
         final Commands commandData = command.getValue();
-        if (commandData.equals(new Commands.Challenge())) {
+        if (commandData.equals(new Commands.Issue())) {
             //TODO this seems dodgy.
-            RockPaperScissorsChallengeState rockPaperScissorsChallengeState = tx.outputsOfType(RockPaperScissorsChallengeState.class).get(0);
+            /*RockPaperScissorsChallengeState rockPaperScissorsChallengeState = tx.outputsOfType(RockPaperScissorsChallengeState.class).get(0);
             requireThat(require -> {
                 require.using("Challenger choice cannot be empty",rockPaperScissorsChallengeState.getChallengerChoice()==null || rockPaperScissorsChallengeState.getChallengerChoice().equals(""));
                 //TODO challenger is not this party
                 //TODO challenged is this party
                 return null;
-            });
+            });*/
         }
 
     }
@@ -32,6 +32,8 @@ public class RockPaperScissorsContract implements Contract {
     public interface Commands extends CommandData {
         class Issue implements Commands {}
         class Challenge implements Commands {}
+        class Accept implements Commands {}
+        class Settle implements Commands {}
     }
 
 }

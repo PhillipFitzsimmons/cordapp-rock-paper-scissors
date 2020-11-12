@@ -26,6 +26,7 @@ import NodeDetails from './NodeDetails'
 import GameBoard from './GameBoard';
 import {sendChallenge} from './remoteclient'
 import TransactionDetails from './TransactionDetails';
+import MockEnvironmentDialogue from './MockEnvironmentDialogue'
 /*
 */
 function TabPanel(props) {
@@ -83,6 +84,7 @@ function App() {
   const [gameboard, setGameboard] = React.useState({});
   const [nodeDetails, setNodeDetails] = React.useState({});
   const [transactionDetails, setTransactionDetails] = React.useState({});
+  const [mockEnvironmentOpen, setMockEnvironmentOpen] = React.useState(false);
   const startGame = () =>{
     setValue(3);
   }
@@ -114,6 +116,9 @@ function App() {
     setGameboardReady(game.ready);
     setGameboard(game);
   }
+  const mockEnvironment = () => {
+    setMockEnvironmentOpen(true);
+  }
   React.useEffect(() => {
     console.log("value", value)
       if (value!=2) {
@@ -134,7 +139,7 @@ const fabs = [
     className: classes.fab,
     icon: <AddIcon />,
     label: 'Add',
-    action: startGame,
+    action: startGame,  
     color2: 'secondary',
     display2: 'none'
   },

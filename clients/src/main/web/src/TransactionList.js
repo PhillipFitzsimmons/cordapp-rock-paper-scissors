@@ -31,7 +31,12 @@ function TransactionList(props) {
     React.useEffect(() => {
         getTransactions(function(transactions) {
             console.log("transactions", transactions);
-            setTransactionList(transactions);
+            //reduce to the latest transaction with the same linear ID
+            let t=transactions.sort((a,b)=>b.recordedTime-a.recordedTime)
+            t=t.filter(element=>element.recordedTime==transactions.find(item=>item.id==element.id).recordedTime);
+
+            console.log("transactions after filtering", t);
+            setTransactionList(t);
         })
       }, []);
       
@@ -42,12 +47,13 @@ function TransactionList(props) {
                 <ListItem onClick={()=>onTransactionSelected(item)} style={{cursor:'pointer'}}>
                     <ListItemAvatar>
                     <Avatar>
-                        {item.status=='tbd' && <EmojiEvents />}
-                        {item.status=='tbd' && <AccountBalance />}
-                        {item.status=='UNCONSUMED' && <ScheduleIcon />}
+                        {item.class=='com.axa.RockPaperScissorsIssuedState' && <EmojiEvents />}
+                        {item.status=='com.axa.RockPaperScissorsChallengeState' && <ScheduleIcon />}
+                        {item.status=='com.axa.RockPaperScissorsAcceptedState' && <ScheduleIcon />}
+                        {item.status=='com.axa.RockPaperScissorsSettledState' && <AccountBalance />}
                     </Avatar>
                     </ListItemAvatar>
-                    <ListItemText primary={item.challengerChoice+" "+item.counterParty.organisation} secondary={new Date(1*item.recordedTime).toISOString()} />
+                    <ListItemText primary={item.id} secondary={/*new Date(1*item.recordedTime).toISOString()*/item.class} />
               </ListItem>
                 )
             })
