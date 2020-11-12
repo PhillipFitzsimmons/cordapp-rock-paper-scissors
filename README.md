@@ -1,14 +1,4 @@
-<p align="center">
-  <img src="https://www.corda.net/wp-content/uploads/2016/11/fg005_corda_b.png" alt="Corda" width="500">
-</p>
-
-# CorDapp Template - Java [<img src="https://raw.githubusercontent.com/corda/samples-java/master/webIDE.png" height=25 />](https://ide.corda.net/?folder=/home/coder/cordapp-template-java)
-
-Welcome to the Java CorDapp template. The CorDapp template is a stubbed-out CorDapp that you can use to bootstrap 
-your own CorDapps.
-
-**This is the Java version of the CorDapp template. The Kotlin equivalent is 
-[here](https://github.com/corda/cordapp-template-kotlin/).**
+This is a messy POC based on Corda's Java template, found here: https://github.com/corda/cordapp-template-java
 
 # Pre-Requisites
 
@@ -17,7 +7,7 @@ See https://docs.corda.net/getting-set-up.html.
 # Usage
 
 ## Running tests inside IntelliJ
-	
+(I'm leaving this in verbatim, but this is a VS Code project now. On the other hand, nothing should prevent it from working in IntelliJ)	
 We recommend editing your IntelliJ preferences so that you use the Gradle runner - this means that the quasar utils
 plugin will make sure that some flags (like ``-javaagent`` - see below) are
 set for you.
@@ -34,9 +24,24 @@ If you would prefer to use the built in IntelliJ JUnit test runner, you can run 
 copy your quasar JAR file to the lib directory. You will then need to specify ``-javaagent:lib/quasar.jar``
 and set the run directory to the project root directory for each test.
 
-## Running the nodes
+VS Code
 
-See https://docs.corda.net/tutorial-cordapp.html#running-the-example-cordapp.
+Mainly same above, except you're running gradle from the command line.
+* ./gradlew clean build
+  * this will clean and build everything, obviously, except the React application.
+* npm run build-to-client
+  * Run this from within clients/src/main/web
+  * It builds the React app and copies it to the resources folder of the SpringBood application.
+  * Then if you call ../gradlew build from /clients a new clients-1.0.jar will be generated in build with the React application embedded.
+* ./gradlew deployNodes
+  * This will generated a build directory in which you'll find a nodes directory in which you'll find a script that will
+    start your nodes locally.
+  * This build task generates a node for every entry in build.gradle. It's here that you can specify the ports, etc.
+  * These ports are relevant to the client, which can be started with
+    * java -jar clients/build/libs/clients-0.1.jar --server.port=10050 --config.rpc.host=localhost --config.rpc.port=10013 --config.rpc.username=user1 --config.rpc.password=test
+    * port 10050 is the port on which the client application is hosted. You can reach it in your browser at localhost:1050
+    * localhost is the host. Running this locally it's unlikely you'll want to change that.
+    * 10013 is the rpc port. This tells the client to which node it should connect. It corresponds to the node configuration mentioned above in build.gradle.
 
 ## Interacting with the nodes
 
@@ -83,7 +88,17 @@ You can find out more about the node shell [here](https://docs.corda.net/shell.h
 `clients/src/main/java/com/template/Client.java` defines a simple command-line client that connects to a node via RPC 
 and prints a list of the other nodes on the network.
 
+clients/src/main/web is a React application.
+* You can start it with npm run start and it will connect by default to port 10050. You'll need to have a client SpringBoot running on that port.
+* Or you can start the SpringBoot application which will expose the client on whichever port for which it's configured, such as 10050. The advantage of npm run start, of course, is hot-deploys.
+
+   java -jar clients/build/libs/clients-0.1.jar --server.port=10050 --config.rpc.host=localhost --config.rpc.port=10013 --config.rpc.username=user1 --config.rpc.password=test
+
 #### Running the client
+
+##### SpringBoot
+See above, but the SpringBoot application encapsulates both the REST and React applications.
+
 
 ##### Via the command line
 
@@ -120,23 +135,3 @@ the username `user1` and the password `test`, and serves the webserver on port `
 Run the `Run Template Server` run configuration. By default, it connects to the node with RPC address `localhost:10006` 
 with the username `user1` and the password `test`, and serves the webserver on port `localhost:10050`.
 
-#### Interacting with the webserver
-
-The static webpage is served on:
-
-    http://localhost:10050
-
-While the sole template endpoint is served on:
-
-    http://localhost:10050/templateendpoint
-    
-# Extending the template
-
-You should extend this template as follows:
-
-* Add your own state and contract definitions under `contracts/src/main/java/`
-* Add your own flow definitions under `workflows/src/main/java/`
-* Extend or replace the client and webserver under `clients/src/main/java/`
-
-For a guided example of how to extend this template, see the Hello, World! tutorial 
-[here](https://docs.corda.net/hello-world-introduction.html).
