@@ -160,8 +160,13 @@ public class Controller {
     @GetMapping(value = "/getstatesbylinearid", produces = "application/json")
     private Map<String, Map<String, Object>> getStatesByLinearId(@RequestParam String linearId) {
         
-        QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria( null, Arrays.asList(java.util.UUID.fromString(linearId)),  null,  Vault.StateStatus.ALL,  null);
+        //QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria( null, Arrays.asList(java.util.UUID.fromString(linearId)),  null,  Vault.StateStatus.ALL,  null);
+        //Page<LinearState> vaultQuery=this.proxy.vaultQueryByCriteria(criteria, LinearState.class);
+
+        QueryCriteria criteria = new QueryCriteria.VaultQueryCriteria(StateStatus.ALL);
         Page<LinearState> vaultQuery=this.proxy.vaultQueryByCriteria(criteria, LinearState.class);
+
+
         List<StateAndRef<LinearState>> states=vaultQuery.getStates();
         List<StateMetadata> statesMetaData=vaultQuery.getStatesMetadata();
         System.out.println("getStatesByLinearId states "+states);
@@ -169,6 +174,14 @@ public class Controller {
         for (StateAndRef<LinearState> state : states) {
             Map<String, Object> map=new HashMap<String, Object>();
             LinearState linearState=state.getState().getData();
+            String testId=linearState.getLinearId().getExternalId()!=null ? linearState.getLinearId().getExternalId()+"" : linearState.getLinearId().getId()+"";
+            //I haven't figured out linear ID yet - sometimes it's longer, sometimes shorter
+            //So rather than querying for it I'm getting everything and filtering here.
+            //Obviously this is a big TODO, but this is a POC
+            if (!testId.equals(linearId)) {
+                System.out.println("Skipping "+linearState+" because testId "+testId+"!="+linearId);
+                continue;
+            }
             if (linearState instanceof RockPaperScissorsIssuedState) {
                 RockPaperScissorsIssuedState issuedState=(RockPaperScissorsIssuedState)linearState;
                 map.put("challenged",partyToMap(issuedState.getChallenged()));

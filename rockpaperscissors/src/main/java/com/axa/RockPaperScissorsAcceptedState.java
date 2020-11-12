@@ -21,7 +21,7 @@ public class RockPaperScissorsAcceptedState implements LinearState {
 
     @Override
     public List<AbstractParty> getParticipants() {
-        return Arrays.asList(challenger, escrow);
+        return Arrays.asList(challenged, escrow);
     }
     @ConstructorForDeserialization
     public RockPaperScissorsAcceptedState(String challengedChoice, Party challenger, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {

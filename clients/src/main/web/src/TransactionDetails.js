@@ -50,7 +50,7 @@ function TransactionDetails(props) {
     const [choice, setChoice] = React.useState('');
     React.useEffect(() => {
         getTransactionDetails(transaction, function(transactionDetails) {
-            console.log(transactionDetails);
+            console.log("transactionDetails",transactionDetails);
             setTransactionDetails(transactionDetails);
         })
       }, []);

@@ -217,15 +217,13 @@ public class RockPaperScissorsFlows {
             builder.addCommand(new RockPaperScissorsContract.Commands.Accept(), signatories);
             builder.verify(getServiceHub());
             final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
-            //otherParties.remove(getOurIdentity());
-            //List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
             List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
             otherParties.remove(getOurIdentity());
             List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
             SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, sessions));
-            
             //FlowSession sessions = initiateFlow(this.sender);
             //SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
+            
             SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
             System.out.println("AcceptChallengeFlow call exit");
             return null;//finalisedTx.getTx().outputsOfType(RockPaperScissorsIssuedState.class).get(0).getLinearId();
