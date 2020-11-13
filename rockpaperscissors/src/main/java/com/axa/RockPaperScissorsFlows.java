@@ -95,7 +95,7 @@ public class RockPaperScissorsFlows {
      */
     @InitiatingFlow
     @InitiatedBy(IssueFlow.class)
-    public static class AcknowledgeIssueFlow extends FlowLogic<UniqueIdentifier> {
+    public static class AcknowledgeIssueFlow extends FlowLogic<SignedTransaction> {
         private FlowSession counterpartySession;
         private RockPaperScissorsIssuedState rockPaperScissorsIssuedState;
         public AcknowledgeIssueFlow(FlowSession counterpartySession) {
@@ -103,7 +103,7 @@ public class RockPaperScissorsFlows {
         }
         @Suspendable
         @Override
-        public UniqueIdentifier call() throws FlowException {
+        public SignedTransaction call() throws FlowException {
             System.out.println("AcknowledgeIssueFlow call enter");
             SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
                 @Suspendable
@@ -142,7 +142,7 @@ public class RockPaperScissorsFlows {
             //Let's see what happens
 
             System.out.println("AcknowledgeIssueFlow call exit");
-            return null;
+            return finalisedTx;
         }
 
     }
@@ -155,7 +155,7 @@ public class RockPaperScissorsFlows {
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
-            System.out.println("AcceptChallengeFlow call enter");
+            System.out.println("AcknowledgeIssueFlow call enter");
             SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
                 @Suspendable
 				@Override
@@ -166,9 +166,9 @@ public class RockPaperScissorsFlows {
 				}
                 
             });
-            subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
-            System.out.println("AcceptChallengeFlow call exit");
-            return null;
+            SignedTransaction finalTransaction = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            System.out.println("AcknowledgeIssueFlow call exit");
+            return finalTransaction;
         }
     }
 
@@ -183,7 +183,7 @@ public class RockPaperScissorsFlows {
      */
     @InitiatingFlow
     @StartableByRPC
-    public static class AcceptChallengeFlow extends FlowLogic<UniqueIdentifier> {
+    public static class AcceptChallengeFlow extends FlowLogic<SignedTransaction> {
 
         private Party sender ;
         private Party challenged;
@@ -199,15 +199,15 @@ public class RockPaperScissorsFlows {
         }
         @Suspendable
         @Override
-        public UniqueIdentifier call() throws FlowException {
+        public SignedTransaction call() throws FlowException {
             System.out.println("AcceptChallengeFlow call enter");
             this.sender = getOurIdentity();
             System.out.println("AcceptChallengeFlow sender should be escrow "+this.sender+" "+this.escrow);
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
             UniqueIdentifier uniqueIdentifier=new UniqueIdentifier(linearId);
-            System.out.println("UniqueIdentifier ID "+uniqueIdentifier.getExternalId());
-            System.out.println("UniqueIdentifier external ID "+uniqueIdentifier.getExternalId());
-            System.out.println("UniqueIdentifier external external ID "+new UniqueIdentifier(uniqueIdentifier.getExternalId()));
+            System.out.println("AcceptChallengeFlow UniqueIdentifier ID "+uniqueIdentifier.getExternalId());
+            System.out.println("AcceptChallengeFlow UniqueIdentifier external ID "+uniqueIdentifier.getExternalId());
+            System.out.println("AcceptChallengeFlow UniqueIdentifier external external ID "+new UniqueIdentifier(uniqueIdentifier.getExternalId()));
             final RockPaperScissorsAcceptedState output = new RockPaperScissorsAcceptedState(choice,sender,challenged, escrow, uniqueIdentifier);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
@@ -219,14 +219,16 @@ public class RockPaperScissorsFlows {
             final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
             List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
             otherParties.remove(getOurIdentity());
+            System.out.println("AcceptChallengeFlow call ....2");
             List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
             SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, sessions));
+            System.out.println("AcceptChallengeFlow call ....3");
             //FlowSession sessions = initiateFlow(this.sender);
             //SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
             
             SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
             System.out.println("AcceptChallengeFlow call exit");
-            return null;//finalisedTx.getTx().outputsOfType(RockPaperScissorsIssuedState.class).get(0).getLinearId();
+            return finalisedTx;
         }
         
     }
@@ -338,14 +340,15 @@ public class RockPaperScissorsFlows {
                 List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
                 SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedChallengeTransaction, sessions));
                 SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
+                return finalisedTx;
             } catch (Exception any) {
                 System.out.println("Exception settling");
                 any.printStackTrace();;
             }
             ///And then finalise
-            subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            SignedTransaction finalFinalisedTx = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
             System.out.println("AcknowledgeAcceptanceFlow call exit");
-            return null;
+            return finalFinalisedTx;
         }
     }
     /**
@@ -427,9 +430,9 @@ public class RockPaperScissorsFlows {
 				}
                 
             });
-            subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            SignedTransaction finalisedTx = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
             System.out.println("FinalisedSettlementFlow call exit");
-            return null;
+            return finalisedTx;
         }
     }
 }

@@ -25,12 +25,16 @@ const useStyles = makeStyles((theme) => ({
   }));
 
 function TransactionList(props) {
-    const { onTransactionSelected, ...other } = props;
+    const { onTransactionSelected, onError, ...other } = props;
     const classes = useStyles();
     const [txList, setTransactionList] = React.useState([]);
     React.useEffect(() => {
-        getTransactions(function(transactions) {
-            console.log("transactions", transactions);
+        getTransactions(function(error, transactions) {
+            console.log("transactions", error, transactions);
+            if (error) {
+                onError(error);
+                return;
+            }
             //reduce to the latest transaction with the same linear ID
             let t=transactions.sort((a,b)=>b.recordedTime-a.recordedTime)
             t=t.filter(element=>element.recordedTime==transactions.find(item=>item.id==element.id).recordedTime);

@@ -109,8 +109,8 @@ public class Controller {
         System.out.println("/issue Parties challenged:"+party.toString()+" escrow:"+escrow.toString());
         Map<String, String> reply=new HashMap<String, String>();
         try {
-            UniqueIdentifier uniqueIdentifier= this.proxy.startFlowDynamic(RockPaperScissorsFlows.IssueFlow.class, party, escrow, choice).getReturnValue().get();
-            reply.put("uniqueIdentifier", uniqueIdentifier.toString());
+            String id= this.proxy.startFlowDynamic(RockPaperScissorsFlows.IssueFlow.class, party, escrow, choice).getReturnValue().get().getExternalId();
+            reply.put("uniqueIdentifier", id);
             //reply.put("committed", result.getTx().getOutput(0).toString());
         } catch (Exception e) {
             reply.put("error", e.getMessage());
@@ -127,8 +127,8 @@ public class Controller {
         Map<String, String> reply=new HashMap<String, String>();
         System.out.println("/accept linearId "+linearId);
         try {
-            UniqueIdentifier uniqueIdentifier= this.proxy.startFlowDynamic(RockPaperScissorsFlows.AcceptChallengeFlow.class, linearId, party, escrow, choice).getReturnValue().get();
-            reply.put("uniqueIdentifier", uniqueIdentifier.toString());
+            String id= this.proxy.startFlowDynamic(RockPaperScissorsFlows.AcceptChallengeFlow.class, linearId, party, escrow, choice).getReturnValue().get().getId()+"";
+            reply.put("uniqueIdentifier", id);
         } catch (Exception e) {
             reply.put("error", e.getMessage());
         }

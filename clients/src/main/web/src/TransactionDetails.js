@@ -45,11 +45,15 @@ const useStyles = makeStyles((theme) => ({
   }
 
 function TransactionDetails(props) {
-    const { transaction, ...other } = props;
+    const { transaction, onError, ...other } = props;
     const [transactionDetails, setTransactionDetails] = React.useState([]);
     const [choice, setChoice] = React.useState('');
     React.useEffect(() => {
-        getTransactionDetails(transaction, function(transactionDetails) {
+        getTransactionDetails(transaction, function(error, transactionDetails) {
+            if (error) {
+                onError(error);
+                return;
+            }
             console.log("transactionDetails",transactionDetails);
             setTransactionDetails(transactionDetails);
         })
@@ -75,7 +79,7 @@ function TransactionDetails(props) {
   const acceptChallenge = () => {
     transactionDetails.ChallengeState.choice=choice;
     sendAcceptChallenge(transactionDetails.ChallengeState, ()=>{
-      getTransactionDetails(transaction, function(transactionDetails) {
+      getTransactionDetails(transaction, function(error, transactionDetails) {
           setTransactionDetails(transactionDetails);
       })
     })

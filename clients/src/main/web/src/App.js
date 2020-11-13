@@ -27,6 +27,12 @@ import GameBoard from './GameBoard';
 import {sendChallenge} from './remoteclient'
 import TransactionDetails from './TransactionDetails';
 import MockEnvironmentDialogue from './MockEnvironmentDialogue'
+import Alert from '@material-ui/lab/Alert';
+import IconButton from '@material-ui/core/IconButton';
+import Collapse from '@material-ui/core/Collapse';
+import Button from '@material-ui/core/Button';
+import CloseIcon from '@material-ui/icons/Close';
+
 /*
 */
 function TabPanel(props) {
@@ -85,12 +91,17 @@ function App() {
   const [nodeDetails, setNodeDetails] = React.useState({});
   const [transactionDetails, setTransactionDetails] = React.useState({});
   const [mockEnvironmentOpen, setMockEnvironmentOpen] = React.useState(false);
+  const [alertOpen, setAlertOpen] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState("");
   const startGame = () =>{
     setValue(3);
   }
   const issueChallenge = () => {
-    sendChallenge(gameboard, function(reply) {
+    sendChallenge(gameboard, function(error, reply) {
       console.log("challenge issued",reply);
+      if (error) {
+        setErrorMessage(error);
+      }
       setValue(0)
     })
   }
@@ -120,19 +131,39 @@ function App() {
     setMockEnvironmentOpen(true);
   }
   React.useEffect(() => {
-    console.log("value", value)
       if (value!=2) {
         setNodeDetails(null);
         setTransactionDetails(null)
       }
   }, [value]);
+  React.useEffect(() => {
+      if (errorMessage!='') {
+        setAlertOpen(true);
+      }
+  }, [errorMessage]);
+  React.useEffect(() => {
+      if (!alertOpen) {
+        setErrorMessage('');
+      }
+  }, [alertOpen]);
   const classes = useStyles();
   const theme = useTheme();
   const transitionDuration = {
     enter: theme.transitions.duration.enteringScreen,
     exit: theme.transitions.duration.leavingScreen,
   };
-
+const transactionDetailsTitle = () => {
+  if (transactionDetails) {
+    if (transactionDetails.class="com.axa.RockPaperScissorsSettledState") {
+      return "settled"
+    } else if (transactionDetails.class="com.axa.RockPaperScissorsChallengeState") {
+      return "issued"
+    } else if (transactionDetails.class="com.axa.RockPaperScissorsAcceptedState") {
+      return "accepted"
+    }
+  }
+  return ""
+}
 const fabs = [
   {
     color: 'primary',
@@ -186,7 +217,7 @@ const fabs = [
         >
           <Tab label="Transactions" {...a11yProps(0)} />
           <Tab label="Nodes" {...a11yProps(1)} />
-          <Tab label={nodeDetails ? nodeDetails.name : transactionDetails ? transactionDetails.challengerChoice : ""} {...a11yProps(2)} />
+          <Tab label={transactionDetailsTitle()} {...a11yProps(2)} />
         </Tabs>
       </AppBar>
       <SwipeableViews
@@ -195,22 +226,22 @@ const fabs = [
         onChangeIndex={handleChangeIndex}
       >
         <TabPanel value={value} index={0} dir={theme.direction} >
-          <TransactionList onTransactionSelected={showNodeTransactionDetails}/>
+          <TransactionList onTransactionSelected={showNodeTransactionDetails} onError={setErrorMessage}/>
         </TabPanel>
         <TabPanel value={value} index={1} dir={theme.direction}>
-        <NodeExplorer onNodeSelected={showNodeDetails}/>
+        <NodeExplorer onNodeSelected={showNodeDetails} onError={setErrorMessage}/>
         </TabPanel>
         <TabPanel value={value} index={2} dir={theme.direction}>
           {nodeDetails &&
-            <NodeDetails node={nodeDetails}/>
+            <NodeDetails node={nodeDetails} onError={setErrorMessage}/>
           }
           {transactionDetails &&
-            <TransactionDetails transaction={transactionDetails}/>
+            <TransactionDetails transaction={transactionDetails} onError={setErrorMessage}/>
           }
           
         </TabPanel>
         <TabPanel value={value} index={3} dir={theme.direction}>
-          <GameBoard onChange={changeGameboard}/>
+          <GameBoard onChange={changeGameboard} onError={setErrorMessage}/>
         </TabPanel>
       </SwipeableViews>
       {fabs.map((fab, index) => (
@@ -250,6 +281,25 @@ const fabs = [
 
         </>
       ))}
+       <Collapse in={alertOpen}>
+        <Alert
+          severity='error'
+          action={
+            <IconButton
+              aria-label="close"
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setAlertOpen(false);
+              }}
+            >
+              <CloseIcon fontSize="inherit" />
+            </IconButton>
+          }
+        >
+          <div>{errorMessage}</div>
+        </Alert>
+      </Collapse>
     </div>
   );
 }

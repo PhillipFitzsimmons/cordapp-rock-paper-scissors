@@ -18,7 +18,7 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 export default function GameBoard(props) {
-    const { onChange, ...other } = props;
+    const { onChange, onError, ...other } = props;
     const classes = useStyles();
     const [escrow, setEscrow] = React.useState('');
     const [counterParty, setCounterParty] = React.useState('');
@@ -36,8 +36,12 @@ export default function GameBoard(props) {
     };
 
     React.useEffect(() => {
-        getNodes(nodeList=>{
+        getNodes((error, nodeList)=>{
             console.log("Gameboard", nodeList);
+            if (error) {
+                onError(error);
+                return;
+            }
             for (var i=0;i<nodeList.length;i++) {
                 nodeList[i].name=nodeList[i].identities[0].name.organisation;
             };

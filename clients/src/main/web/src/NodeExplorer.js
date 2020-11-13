@@ -26,11 +26,15 @@ const useStyles = makeStyles((theme) => ({
   }));
 
 function NodeExplorer(props) {
-    const { onNodeSelected, ...other } = props;
+    const { onNodeSelected, onError, ...other } = props;
     const classes = useStyles();
     const [nodes, setNodes] = React.useState('');
     React.useEffect(() => {
-        getNodes(nodeList=>{
+        getNodes((error, nodeList)=>{
+            if (error) {
+                onError(error);
+                return;
+            }
             console.log("NodeExplorer", nodeList);
             for (var i=0;i<nodeList.length;i++) {
                 nodeList[i].name=nodeList[i].identities[0].name.organisation;

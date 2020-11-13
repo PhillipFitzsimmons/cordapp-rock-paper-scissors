@@ -32,12 +32,13 @@ export const getNodes = async(callback) => {
 
         })
         .then(function (json) {
-            return json
+            return {response:json}
         }).catch(err=>{
             console.log("getNodes error", err);
+            return {error: `"${err}"`}
         })
         console.log("getNodes", reply);
-    callback(reply);
+    callback(reply.error, reply.response);
 }
 export const sendChallenge = async(gameboard, callback) => {
     console.log("sendChallenge", gameboard);
@@ -51,17 +52,20 @@ export const sendChallenge = async(gameboard, callback) => {
         },
     })
         .then(function (response) {
-            let responseCode = response.status;
-            return response.json();
-
+            //let responseCode = response.status;
+            //return response.json();
+            return {response:json}
         })
         .then(function (json) {
-            return json
+            //return json
+            return {response:json}
         }).catch(err=>{
             console.log("sendChallenge error", err);
+            return {error: `"${err}"`}
         })
         console.log("sendChallenge", reply);
-    callback(reply);
+    //callback(reply);
+    callback(reply.error, reply.response);
 }
 
 export const sendAcceptChallenge =  async(challenge, callback) => {
@@ -77,17 +81,20 @@ export const sendAcceptChallenge =  async(challenge, callback) => {
         },
     })
         .then(function (response) {
-            let responseCode = response.status;
+            //let responseCode = response.status;
             return response.json();
 
         })
         .then(function (json) {
-            return json
+            //return json
+            return {response:json}
         }).catch(err=>{
             console.log("sendAcceptChallenge error", err);
+            return {error: `"${err}"`}
         })
         console.log("sendAcceptChallenge", reply);
-    callback(reply);
+    //callback(reply);
+    callback(reply.error, reply.response);
 }
 export const getTransactions = async(callback) => {
     let url=`${getServer()}${GET_TRANSACTIONS_API}`;
@@ -101,17 +108,20 @@ export const getTransactions = async(callback) => {
         },
     })
         .then(function (response) {
-            let responseCode = response.status;
+            //let responseCode = response.status;
             return response.json();
 
         })
         .then(function (json) {
-            return json
+            //return json
+            return {response:json}
         }).catch(err=>{
             console.log("getTransactions error", err);
+            return {error: `"${err}"`}
         })
         console.log("getTransactions", reply);
-    callback(reply);
+    //callback(reply);
+    callback(reply.error, reply.response);
 }
 export const getTransactionDetails = async(transaction, callback) => {
     let url=`${getServer()}${GET_TRANSACTION_DETAILS_API}?linearId=${transaction.id}`;
@@ -125,16 +135,19 @@ export const getTransactionDetails = async(transaction, callback) => {
         },
     })
         .then(function (response) {
-            let responseCode = response.status;
+            //let responseCode = response.status;
             return response.json();
 
         })
         .then(function (json) {
-            return json
+            //return json
+            return {response:json}
         }).catch(err=>{
             console.log("getTransactionDetails error", err);
+            return {error: `"${err}"`}
         })
         console.log("getTransactionDetails", reply);
-    callback(reply);
+    //callback(reply);
+    callback(reply.error, reply.response);
 }
 
