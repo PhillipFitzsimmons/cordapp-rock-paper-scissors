@@ -11,8 +11,10 @@ import net.corda.core.concurrent.CordaFuture;
 import net.corda.core.contracts.LinearState;
 import net.corda.core.contracts.StateAndRef;
 import net.corda.core.contracts.UniqueIdentifier;
+import net.corda.core.identity.CordaX500Name;
 import net.corda.core.node.services.Vault;
 import net.corda.core.node.services.Vault.StateMetadata;
+import net.corda.core.node.services.vault.QueryCriteria;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.testing.node.MockNetwork;
 import com.google.common.collect.ImmutableList;
@@ -30,11 +32,14 @@ public class RockPaperScissorsFlowTest {
     public void setup() {
         network = new MockNetwork(new MockNetworkParameters().withCordappsForAllNodes(ImmutableList.of(
                 TestCordapp.findCordapp("com.axa"))));
-        a = network.createPartyNode(null);
-        b = network.createPartyNode(null);
-        c = network.createPartyNode(null);
+        a = network.createPartyNode(new CordaX500Name("challenger", "challenger org", "Paris", "FR"));
+        b = network.createPartyNode(new CordaX500Name("challenged", "challenged party org", "London", "GB"));
+        c = network.createPartyNode(new CordaX500Name("escrow", "escrow agent org", "New York", "US"));
+        System.out.println("node a "+a.getInfo().getLegalIdentities().get(0));
+        System.out.println("node b "+b.getInfo().getLegalIdentities().get(0));
+        System.out.println("node c "+c.getInfo().getLegalIdentities().get(0));
         // For real nodes this happens automatically, but we have to manually register the flow for tests.
-        for (StartedMockNode node : ImmutableList.of(a, b)) {
+        for (StartedMockNode node : ImmutableList.of(a, b, c)) {
             node.registerInitiatedFlow(RockPaperScissorsFlows.AcknowledgeChallengeFlow.class);
         }
         network.runNetwork();
@@ -64,19 +69,22 @@ public class RockPaperScissorsFlowTest {
         RockPaperScissorsFlows.AcceptChallengeFlow acceptFlow = new RockPaperScissorsFlows.AcceptChallengeFlow (uniqueIdentifier+"", b.getInfo().getLegalIdentities().get(0), c.getInfo().getLegalIdentities().get(0),"scissors");
         CordaFuture<SignedTransaction> futureAccept = b.startFlow(acceptFlow);
         network.runNetwork();
-        //uniqueIdentifier = futureAccept.get();
-        //System.out.println("..."+uniqueIdentifier);
-        Vault.Page<LinearState> states = a.getServices().getVaultService().queryBy(LinearState.class);
+        SignedTransaction signedTransaction= futureAccept.get();
+        System.out.println("..."+signedTransaction);
+        //Vault.Page<LinearState> states = a.getServices().getVaultService().queryBy(LinearState.class);
+        QueryCriteria.LinearStateQueryCriteria queryCriteria=new QueryCriteria.LinearStateQueryCriteria().withStatus(Vault.StateStatus.ALL);
+        Vault.Page<LinearState> states = a.getServices().getVaultService().queryBy(LinearState.class, queryCriteria);
+        
         List<StateAndRef<LinearState>> linearStates = states.getStates();
         for (StateAndRef<LinearState> linearState : linearStates) {
             System.out.println("STATE node a "+stateToString(states.getStatesMetadata(), linearState));
         }
-        states = b.getServices().getVaultService().queryBy(LinearState.class);
+        states = b.getServices().getVaultService().queryBy(LinearState.class, queryCriteria);
         linearStates = states.getStates();
         for (StateAndRef<LinearState> linearState : linearStates) {
             System.out.println("STATE node b "+stateToString(states.getStatesMetadata(), linearState));
         }
-        states = c.getServices().getVaultService().queryBy(LinearState.class);
+        states = c.getServices().getVaultService().queryBy(LinearState.class, queryCriteria);
         linearStates = states.getStates();
         for (StateAndRef<LinearState> linearState : linearStates) {
             System.out.println("STATE node c "+stateToString(states.getStatesMetadata(), linearState));

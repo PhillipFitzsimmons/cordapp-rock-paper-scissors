@@ -53,8 +53,7 @@ export const sendChallenge = async(gameboard, callback) => {
     })
         .then(function (response) {
             //let responseCode = response.status;
-            //return response.json();
-            return {response:json}
+            return response.json();
         })
         .then(function (json) {
             //return json

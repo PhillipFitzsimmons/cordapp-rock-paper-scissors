@@ -10,7 +10,6 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 
-
 import co.paralleluniverse.fibers.Suspendable;
 import net.bytebuddy.implementation.bind.MethodDelegationBinder.BindingResolver.Unique;
 import net.corda.core.contracts.ContractState;
@@ -31,408 +30,411 @@ import net.corda.core.identity.Party;
 import net.corda.core.node.services.vault.QueryCriteria;
 import net.corda.core.transactions.SignedTransaction;
 import net.corda.core.transactions.TransactionBuilder;
+import net.corda.core.node.ServiceHub;
 import net.corda.core.node.services.Vault.Page;
 import net.corda.core.node.services.Vault.StateMetadata;
 import net.corda.core.node.services.Vault.StateStatus;
 
-
 public class RockPaperScissorsFlows {
     /**
-     * IssueFlow starts the Rock Paper Scissors game.
-     * It conveys the three involved parties: challenger, challenged, and escrow agent, and it 
-     * includes the challengers choice, which must be "rock","paper", or "scissors".
-     * It initiates a gather signatures flow for the challenger and escrow (TODO, why? Isn't it validated in the responding flow?)
-     * It initiates a finality flow, which I believe is what kicks off the EscrowFlow...
+     * IssueFlow starts the Rock Paper Scissors game. It conveys the three involved
+     * parties: challenger, challenged, and escrow agent, and it includes the
+     * challengers choice, which must be "rock","paper", or "scissors". It initiates
+     * a gather signatures flow for the challenger and escrow (TODO, why? Isn't it
+     * validated in the responding flow?) It initiates a finality flow, which I
+     * believe is what kicks off the EscrowFlow...
      */
     @InitiatingFlow
     @StartableByRPC
     public static class IssueFlow extends FlowLogic<UniqueIdentifier> {
 
-        private Party sender ;
+        private Party sender;
         private Party challenged;
         private Party escrow;
         private String choice;
+
         public IssueFlow(Party challenged, Party escrow, String choice) {
-            this.challenged=challenged;
-            this.escrow=escrow;
-            this.choice=choice;
+            this.challenged = challenged;
+            this.escrow = escrow;
+            this.choice = choice;
         }
+
         @Suspendable
         @Override
         public UniqueIdentifier call() throws FlowException {
             System.out.println("IssueFlow call enter");
             this.sender = getOurIdentity();
-            //TODO create our own Notary and get an instance by name
+            // TODO create our own Notary and get an instance by name
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
 
-            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice,sender,challenged, escrow);
+            final RockPaperScissorsIssuedState output = new RockPaperScissorsIssuedState(choice, sender, challenged,
+                    escrow);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
             builder.addOutputState(output);
-            //At this point, the signatories are the challenger and the escrow agent.
-            List<PublicKey> signatories=Arrays.asList(this.sender.getOwningKey(),this.escrow.getOwningKey());
+            // At this point, the signatories are the challenger and the escrow agent.
+            List<PublicKey> signatories = Arrays.asList(this.sender.getOwningKey(), this.escrow.getOwningKey());
             builder.addCommand(new RockPaperScissorsContract.Commands.Issue(), signatories);
             builder.verify(getServiceHub());
             final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
-            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
+            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party) el)
+                    .collect(Collectors.toList());
             otherParties.remove(getOurIdentity());
-            //List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
+            // List<FlowSession> sessions = otherParties.stream().map(el ->
+            // initiateFlow(el)).collect(Collectors.toList());
             FlowSession sessions = initiateFlow(escrow);
-            SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
+            SignedTransaction signatureTransaction = subFlow(
+                    new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
             SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
             System.out.println("IssueFlow call exit");
             return finalisedTx.getTx().outputsOfType(RockPaperScissorsIssuedState.class).get(0).getLinearId();
         }
-        
+
     }
+
     /**
-     * The AcknowledgeIssueFlow is initiated by the IssueFlow.
-     * It validates the RockPaperScissorsIssuedState.
-     * It creates an EscrowedState
-     * It gathers the signatures for that state 
-     * - The signatorires are the escrow agent and the challenged.
-     * This kicks off the AcceptChallenge flow
+     * The AcknowledgeIssueFlow is initiated by the IssueFlow. It validates the
+     * RockPaperScissorsIssuedState. It creates an EscrowedState It gathers the
+     * signatures for that state - The signatorires are the escrow agent and the
+     * challenged. This kicks off the AcceptChallenge flow
      */
     @InitiatingFlow
     @InitiatedBy(IssueFlow.class)
     public static class AcknowledgeIssueFlow extends FlowLogic<SignedTransaction> {
         private FlowSession counterpartySession;
         private RockPaperScissorsIssuedState rockPaperScissorsIssuedState;
+
         public AcknowledgeIssueFlow(FlowSession counterpartySession) {
-            this.counterpartySession=counterpartySession;
+            this.counterpartySession = counterpartySession;
         }
+
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
             System.out.println("AcknowledgeIssueFlow call enter");
-            SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
+            SignedTransaction signedTransaction = subFlow(new SignTransactionFlow(counterpartySession) {
                 @Suspendable
-				@Override
-				protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
+                @Override
+                protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
                     ContractState output = signedTransaction.getTx().getOutputs().get(0).getData();
-					requireThat(require -> {
-                        
-                        require.using("This must be an IOU transaction", output instanceof RockPaperScissorsIssuedState);
-                        return ((RockPaperScissorsIssuedState)output).getLinearId();
+                    requireThat(require -> {
+
+                        require.using("This must be an IOU transaction",
+                                output instanceof RockPaperScissorsIssuedState);
+                        return ((RockPaperScissorsIssuedState) output).getLinearId();
                     });
-                    rockPaperScissorsIssuedState = (RockPaperScissorsIssuedState)output;
-				}
-                
+                    rockPaperScissorsIssuedState = (RockPaperScissorsIssuedState) output;
+                }
+
             });
             subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
-            //This is the theoretical bit - can I just launch another flow from here?
-            final RockPaperScissorsChallengeState challengeState = new RockPaperScissorsChallengeState(rockPaperScissorsIssuedState.getChallenger(),rockPaperScissorsIssuedState.getChallenged(),rockPaperScissorsIssuedState.getEscrow(), rockPaperScissorsIssuedState.getLinearId());
+            // This is the theoretical bit - can I just launch another flow from here?
+            final RockPaperScissorsChallengeState challengeState = new RockPaperScissorsChallengeState(
+                    rockPaperScissorsIssuedState.getChallenger(), rockPaperScissorsIssuedState.getChallenged(),
+                    rockPaperScissorsIssuedState.getEscrow(), rockPaperScissorsIssuedState.getLinearId());
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
             final TransactionBuilder builder = new TransactionBuilder(notary);
             builder.addOutputState(challengeState);
-            //Now the signatories are the challenged and the escrow agent.
-            List<PublicKey> signatories=Arrays.asList(challengeState.getChallenged().getOwningKey(),challengeState.getEscrow().getOwningKey());
+
+            // Input state. This mess is just to acquire the previous state, because the
+            // argument to addInputState
+            StateAndRef<LinearState> inputState = fetch(RockPaperScissorsIssuedState.class,
+                    rockPaperScissorsIssuedState.getLinearId().getId(), getServiceHub());
+            System.out.println("AcknowledgeIssueFlow call inputState " + inputState);
+            if (inputState != null) {
+                // It's worth nothing here for future reference that when I add the input state
+                // I get an error
+                // in the subsequent response flow because the Challenger isn't in the
+                // FinalityFlow. As near
+                // as I can tell, this is an evolution of Corda 4 which requires the
+                // FinalityFlow to include all
+                // participants (signatories or not) and that includes particpants to the input,
+                // which I suppose
+                // makes sense but it all seems rather arbitrary.
+                // New theory - this isn't where I should be consuming the state - it should be
+                // at the end, when I have all
+                // signatories on hand.
+                // builder.addInputState(inputState);
+                // UPDATE for this git commit - it worked. See comments in AcknowledgeAcceptanceFlow
+            } else {
+                System.out.println("We didn't find the input state.");
+            }
+            // Now we should have added the input state
+            // TODO obviously rationalise this.
+
+            // Now the signatories are the challenged and the escrow agent.
+            List<PublicKey> signatories = Arrays.asList(challengeState.getChallenged().getOwningKey(),
+                    challengeState.getEscrow().getOwningKey());
             builder.addCommand(new RockPaperScissorsContract.Commands.Challenge(), signatories);
             builder.verify(getServiceHub());
             final SignedTransaction signedChallengeTransaction = getServiceHub().signInitialTransaction(builder);
-            List<Party> otherParties = challengeState.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
-            
-            System.out.println("otherParties Before "+otherParties);
-            otherParties.remove(getOurIdentity());
-            System.out.println("otherParties After "+otherParties);
-            System.out.println("our identitiy "+getOurIdentity());
-            List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
-            SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedChallengeTransaction, sessions));
-            SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
-            //Let's see what happens
+            List<Party> otherParties = challengeState.getParticipants().stream().map(el -> (Party) el)
+                    .collect(Collectors.toList());
 
+            System.out.println("otherParties Before " + otherParties);
+            otherParties.remove(getOurIdentity());
+            List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
+            SignedTransaction signatureTransaction = subFlow(
+                    new CollectSignaturesFlow(signedChallengeTransaction, sessions));
+            SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
+            
             System.out.println("AcknowledgeIssueFlow call exit");
             return finalisedTx;
         }
 
     }
+
     @InitiatedBy(AcknowledgeIssueFlow.class)
     public static class AcknowledgeChallengeFlow extends FlowLogic<SignedTransaction> {
         private FlowSession counterpartySession;
+
         public AcknowledgeChallengeFlow(FlowSession counterpartySession) {
-            this.counterpartySession=counterpartySession;
+            this.counterpartySession = counterpartySession;
         }
+
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
             System.out.println("AcknowledgeIssueFlow call enter");
-            SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
+            SignedTransaction signedTransaction = subFlow(new SignTransactionFlow(counterpartySession) {
                 @Suspendable
-				@Override
-				protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
-					// TODO Auto-generated method stub
-                    //StateRef stateRef=signedTransaction.getInputs().get(0);
-                    //System.out.println("StateRef "+stateRef);
-				}
-                
+                @Override
+                protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
+                    // TODO Auto-generated method stub
+                    // StateRef stateRef=signedTransaction.getInputs().get(0);
+                    // System.out.println("StateRef "+stateRef);
+                }
+
             });
-            SignedTransaction finalTransaction = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            SignedTransaction finalTransaction = subFlow(
+                    new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
             System.out.println("AcknowledgeIssueFlow call exit");
             return finalTransaction;
         }
     }
 
     /**
-     * AcceptChallengeFlow accepts the flow, the state of which at this point should be
-     * a consumed Challenge state.
-     * It conveys the three involved parties: challenger, challenged, and escrow agent, and it 
-     * includes the challenged party's choice, which must be "rock","paper", or "scissors".
-     * It initiates a gather signatures flow for the challenger and escrow (TODO, why? Isn't it validated in the responding flow?)
-     * It initiates a finality flow, which should kick off the ChallengeAcceptedFlow
-     * It also starts a new flow - SettlementFlow
+     * AcceptChallengeFlow accepts the flow, the state of which at this point should
+     * be a consumed Challenge state. It conveys the three involved parties:
+     * challenger, challenged, and escrow agent, and it includes the challenged
+     * party's choice, which must be "rock","paper", or "scissors". It initiates a
+     * gather signatures flow for the challenger and escrow (TODO, why? Isn't it
+     * validated in the responding flow?) It initiates a finality flow, which should
+     * kick off the ChallengeAcceptedFlow It also starts a new flow - SettlementFlow
      */
     @InitiatingFlow
     @StartableByRPC
     public static class AcceptChallengeFlow extends FlowLogic<SignedTransaction> {
 
-        private Party sender ;
+        private Party sender;
         private Party challenged;
         private Party escrow;
         private String choice;
         private String linearId;
+
         public AcceptChallengeFlow(String linearId, Party challenged, Party escrow, String choice) {
-            this.challenged=challenged;
-            this.escrow=escrow;
-            this.choice=choice;
-            this.linearId=linearId;
-            System.out.println("AcceptChallengeFlow linearId"+linearId);
+            this.challenged = challenged;
+            this.escrow = escrow;
+            this.choice = choice;
+            this.linearId = linearId;
+            System.out.println("AcceptChallengeFlow linearId" + linearId);
         }
+
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
             System.out.println("AcceptChallengeFlow call enter");
             this.sender = getOurIdentity();
-            System.out.println("AcceptChallengeFlow sender should be escrow "+this.sender+" "+this.escrow);
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
-            UniqueIdentifier uniqueIdentifier=new UniqueIdentifier(linearId);
-            System.out.println("AcceptChallengeFlow UniqueIdentifier ID "+uniqueIdentifier.getExternalId());
-            System.out.println("AcceptChallengeFlow UniqueIdentifier external ID "+uniqueIdentifier.getExternalId());
-            System.out.println("AcceptChallengeFlow UniqueIdentifier external external ID "+new UniqueIdentifier(uniqueIdentifier.getExternalId()));
-            final RockPaperScissorsAcceptedState output = new RockPaperScissorsAcceptedState(choice,sender,challenged, escrow, uniqueIdentifier);
+            UniqueIdentifier uniqueIdentifier = new UniqueIdentifier(linearId);
+            final RockPaperScissorsAcceptedState output = new RockPaperScissorsAcceptedState(choice, sender, challenged,
+                    escrow, uniqueIdentifier);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
             builder.addOutputState(output);
-            //At this point, the signatories are the challenged party and the escrow agent.
-            List<PublicKey> signatories=Arrays.asList(this.sender.getOwningKey(),this.escrow.getOwningKey());
+            // At this point, the signatories are the challenged party and the escrow agent.
+            List<PublicKey> signatories = Arrays.asList(this.sender.getOwningKey(), this.escrow.getOwningKey());
             builder.addCommand(new RockPaperScissorsContract.Commands.Accept(), signatories);
             builder.verify(getServiceHub());
             final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
-            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
+            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party) el)
+                    .collect(Collectors.toList());
             otherParties.remove(getOurIdentity());
-            System.out.println("AcceptChallengeFlow call ....2");
             List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
             SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, sessions));
-            System.out.println("AcceptChallengeFlow call ....3");
-            //FlowSession sessions = initiateFlow(this.sender);
-            //SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
             
             SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
             System.out.println("AcceptChallengeFlow call exit");
             return finalisedTx;
         }
-        
+
     }
+    /**
+     * This poorly name flow is actually the last flow, and it's sent from the Challenged party
+     * to the Escrow party, who calculates the winner and then gets all parties to sign the final state
+     * and all outstanding input states.
+     */
     @InitiatingFlow
     @InitiatedBy(AcceptChallengeFlow.class)
     public static class AcknowledgeAcceptanceFlow extends FlowLogic<SignedTransaction> {
         private FlowSession counterpartySession;
+
         public AcknowledgeAcceptanceFlow(FlowSession counterpartySession) {
-            this.counterpartySession=counterpartySession;
+            this.counterpartySession = counterpartySession;
         }
+
         RockPaperScissorsAcceptedState acceptedState;
         RockPaperScissorsIssuedState issuedState;
+
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
             System.out.println("AcknowledgeAcceptanceFlow call enter");
-            
-            SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
-                @Suspendable
-				@Override
-				protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
-                    ContractState output = signedTransaction.getTx().getOutputs().get(0).getData();
-                    acceptedState = (RockPaperScissorsAcceptedState)output;
-                    try {
-                        System.out.println("AcknowledgeAcceptanceFlow linearID "+acceptedState.getLinearId());
-                        java.util.UUID uuid;
-                        if (acceptedState.getLinearId().getExternalId()!=null) {
-                            uuid=UUID.fromString(acceptedState.getLinearId().getExternalId());
-                        } else {
-                            uuid=UUID.fromString(acceptedState.getLinearId().getId().toString());
-                        }
-                        QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria(null,ImmutableList.of(uuid));
-                        Page<LinearState> vaultQuery=getServiceHub().getVaultService().queryBy(LinearState.class, criteria);
-                        List<StateAndRef<LinearState>> states=vaultQuery.getStates();
-                        List<StateMetadata> statesMetaData=vaultQuery.getStatesMetadata();
-                        //Until I figure out how to query by class, I'm iterating through the results looking for a 
-                        //RockPaperScissorsIssuedState with the same ID
 
-                        for (StateAndRef<LinearState> state : states) {
-                            if (state.getState().getData() instanceof RockPaperScissorsIssuedState) {
-                                System.out.println("RockPaperScissorsIssuedState from query "+((LinearState)state.getState().getData()).getLinearId());
-                                issuedState=((RockPaperScissorsIssuedState)state.getState().getData());
-                            }
-                            for (StateMetadata metadata : statesMetaData) {
-                                if (metadata.getRef().getTxhash().equals(state.getRef().getTxhash())) {
-                                    System.out.println("We still have this bug...STATUS:"+metadata.getStatus());
-                                }
+            SignedTransaction signedTransaction = subFlow(new SignTransactionFlow(counterpartySession) {
+                @Suspendable
+                @Override
+                protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
+                    ContractState output = signedTransaction.getTx().getOutputs().get(0).getData();
+                    acceptedState = (RockPaperScissorsAcceptedState) output;
+                        System.out.println("AcknowledgeAcceptanceFlow linearID " + acceptedState.getLinearId());
+                        java.util.UUID uuid;
+                        //I recognise that this is a workaround to something I don't understand
+                        if (acceptedState.getLinearId().getExternalId() != null) {
+                            uuid = UUID.fromString(acceptedState.getLinearId().getExternalId());
+                        } else {
+                            uuid = UUID.fromString(acceptedState.getLinearId().getId().toString());
                         }
-                            System.out.println("STATEs from query "+((LinearState)state.getState().getData()).getLinearId());
-                        }
-                        
-                    } catch (Exception any) {
-                        any.printStackTrace();
-                    }
-					requireThat(require -> {
-                        
-                        //require.using("This must be an RockPaperScissorsAcceptedState transaction", output instanceof RockPaperScissorsAcceptedState);
-                        return ((RockPaperScissorsAcceptedState)output).getLinearId();
+                        StateAndRef<LinearState> ref=fetch(RockPaperScissorsIssuedState.class, uuid, getServiceHub());
+                        issuedState=(RockPaperScissorsIssuedState)ref.getState().getData();
+                    requireThat(require -> {
+
+                        // require.using("This must be an RockPaperScissorsAcceptedState transaction",
+                        // output instanceof RockPaperScissorsAcceptedState);
+                        return ((RockPaperScissorsAcceptedState) output).getLinearId();
                     });
-                    
+
                 }
-                
-                
+
             });
-            //And finally, initiate the SettlementFlow to settle the game
-            System.out.println("challenger:"+issuedState.getChallengerChoice()+" challenged:"+acceptedState.getChallengedChoice()+" ");
-            
-            Party winner=null;
+            // And finally, initiate the SettlementFlow to settle the game
+            System.out.println("challenger:" + issuedState.getChallengerChoice() + " challenged:"
+                    + acceptedState.getChallengedChoice() + " ");
+
+            Party winner = null;
             if (issuedState.getChallengerChoice().equals("rock")) {
                 if (acceptedState.getChallengedChoice().equals("rock")) {
-                    //No winner
+                    // No winner
                 } else if (acceptedState.getChallengedChoice().equals("paper")) {
-                    winner=acceptedState.getChallenged();
+                    winner = acceptedState.getChallenged();
                 } else if (acceptedState.getChallengedChoice().equals("scissors")) {
-                    winner=issuedState.getChallenger();
+                    winner = issuedState.getChallenger();
                 }
             } else if (issuedState.getChallengerChoice().equals("paper")) {
                 if (acceptedState.getChallengedChoice().equals("rock")) {
-                    winner=issuedState.getChallenger();
+                    winner = issuedState.getChallenger();
                 } else if (acceptedState.getChallengedChoice().equals("paper")) {
-                    //No winner
+                    // No winner
                 } else if (acceptedState.getChallengedChoice().equals("scissors")) {
-                    winner=issuedState.getChallenged();
+                    winner = issuedState.getChallenged();
                 }
             } else if (issuedState.getChallengerChoice().equals("scissors")) {
                 if (acceptedState.getChallengedChoice().equals("rock")) {
-                    winner=issuedState.getChallenged();
+                    winner = issuedState.getChallenged();
                 } else if (acceptedState.getChallengedChoice().equals("paper")) {
-                    winner=issuedState.getChallenger();
+                    winner = issuedState.getChallenger();
                 } else if (acceptedState.getChallengedChoice().equals("scissors")) {
-                    //No winner
+                    // No winner
                 }
             }
-            try {
-                final RockPaperScissorsSettledState settledState = new RockPaperScissorsSettledState(
-                    issuedState.getChallenger(),issuedState.getChallengerChoice(),
-                    acceptedState.getChallenged(), acceptedState.getChallengedChoice(), acceptedState.getEscrow(), winner, issuedState.getLinearId());
-                final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
-                final TransactionBuilder builder = new TransactionBuilder(notary);
-                builder.addOutputState(settledState);
-                //Now the signatories are the challenged and the escrow agent.
-                List<PublicKey> signatories=Arrays.asList(settledState.getChallenger().getOwningKey(),settledState.getChallenged().getOwningKey(),settledState.getEscrow().getOwningKey());
-                builder.addCommand(new RockPaperScissorsContract.Commands.Settle(), signatories);
-                builder.verify(getServiceHub());
-                final SignedTransaction signedChallengeTransaction = getServiceHub().signInitialTransaction(builder);
-                List<Party> otherParties = settledState.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
-                
-                otherParties.remove(getOurIdentity());
-                List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
-                SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedChallengeTransaction, sessions));
-                SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
-                return finalisedTx;
-            } catch (Exception any) {
-                System.out.println("Exception settling");
-                any.printStackTrace();;
+            final RockPaperScissorsSettledState settledState = new RockPaperScissorsSettledState(
+                    issuedState.getChallenger(), issuedState.getChallengerChoice(), acceptedState.getChallenged(),
+                    acceptedState.getChallengedChoice(), acceptedState.getEscrow(), winner, issuedState.getLinearId());
+            final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
+            final TransactionBuilder builder = new TransactionBuilder(notary);
+            builder.addOutputState(settledState);
+            /*
+            This is the big epiphany from the previous version.
+            Previously, either nothing was consumed or I was getting errors when I tried to complete my transactions.
+            The problem was that I was consuming them in the wrong place - in a transaction in which the signatories to the
+            input states weren't present.
+            So in this, the final transaction, I get all outstanding (unconsumed) states and add them to this transaction as inputs.
+            It remains to be determined if it doesn't make more sense - in so far as implement Rock Paper Scissors in Corda makes sense -
+            if some of these states - notably the IssuedState - shouldn't be consumed when it's just between the Escrow Agent and Challenger,
+            but this is now working and hence seems like a good place for a commit to git.
+            */
+            List<StateAndRef<LinearState>> inputStates = fetchAll(issuedState.getLinearId().getId(), getServiceHub());
+            for (StateAndRef<LinearState> inputState : inputStates) {
+                builder.addInputState(inputState);
             }
-            ///And then finalise
-            SignedTransaction finalFinalisedTx = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            // Now the signatories are everybody.
+            List<PublicKey> signatories = Arrays.asList(settledState.getChallenger().getOwningKey(),
+                    settledState.getChallenged().getOwningKey(), settledState.getEscrow().getOwningKey());
+            builder.addCommand(new RockPaperScissorsContract.Commands.Settle(), signatories);
+            builder.verify(getServiceHub());
+            final SignedTransaction signedChallengeTransaction = getServiceHub().signInitialTransaction(builder);
+            List<Party> otherParties = settledState.getParticipants().stream().map(el -> (Party) el)
+                    .collect(Collectors.toList());
+
+            otherParties.remove(getOurIdentity());
+            List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
+            SignedTransaction signatureTransaction = subFlow(
+                    new CollectSignaturesFlow(signedChallengeTransaction, sessions));
+            subFlow(new FinalityFlow(signatureTransaction, sessions));
+            // return finalisedTx;
+            /// And then finalise
+            System.out.println("AcknowledgeAcceptanceFlow about to finalise " + counterpartySession);
+            SignedTransaction finalFinalisedTx = subFlow(
+                    new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
             System.out.println("AcknowledgeAcceptanceFlow call exit");
             return finalFinalisedTx;
         }
     }
-    /**
-     * SettledFlow ends the Rock Paper Scissors game.
-     * It's started by the escrow agent from the SettlementFlow response flow.
-     * It conveys the three involved parties: challenger, challenged, and escrow agent, and it 
-     * includes the challenger's choice, challenged party's choice, and the winner (which may be null,
-     * case of a tie).
-     * It initiates a gather signatures flow for the challenger and escrow (TODO, why? Isn't it validated in the responding flow?)
-     * It initiates a finality flow, which should consume the SettleState
-     */
-/*
-    @InitiatingFlow
-    public static class SettledFlow extends FlowLogic<UniqueIdentifier> {
 
-        private Party challenger;
-        private Party challenged;
-        private Party escrow;
-        private String challengerChoice;
-        private String challengedChoice;
-        private String linearId;
-        private Party winner;
-        public SettledFlow(Party challenger, String challengerChoice, Party challenged, String challengedChoice, Party escrow, Party winner, String linearId) {
-            this.challenger=challenger;
-            this.challengerChoice=challengerChoice;
-            this.challenged=challenged;
-            this.challengedChoice=challengedChoice;
-            this.escrow=escrow;
-            this.winner=winner;
-            this.linearId=linearId;
-        }
-        @Suspendable
-        @Override
-        public UniqueIdentifier call() throws FlowException {
-            System.out.println("SettledFlow call enter");
-            this.escrow = getOurIdentity();
-            //TODO create our own Notary and get an instance by name
-            final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
-
-            final RockPaperScissorsSettledState output = new RockPaperScissorsSettledState(
-                challenger, challengerChoice, challenged, challengedChoice, escrow, winner, new UniqueIdentifier(linearId));
-            final TransactionBuilder builder = new TransactionBuilder(notary);
-
-            builder.addOutputState(output);
-            //At this point, the signatories are the challenger and the escrow agent.
-            List<PublicKey> signatories=Arrays.asList(this.escrow.getOwningKey(),this.challenger.getOwningKey(),this.challenged.getOwningKey());
-            builder.addCommand(new RockPaperScissorsContract.Commands.Settle(), signatories);
-            builder.verify(getServiceHub());
-            final SignedTransaction signedTransaction = getServiceHub().signInitialTransaction(builder);
-            List<Party> otherParties = output.getParticipants().stream().map(el -> (Party)el).collect(Collectors.toList());
-            otherParties.remove(getOurIdentity());
-            //List<FlowSession> sessions = otherParties.stream().map(el -> initiateFlow(el)).collect(Collectors.toList());
-            FlowSession sessions = initiateFlow(escrow);
-            SignedTransaction signatureTransaction = subFlow(new CollectSignaturesFlow(signedTransaction, ImmutableList.of(sessions)));
-            SignedTransaction finalisedTx = subFlow(new FinalityFlow(signatureTransaction, sessions));
-            System.out.println("SettledFlow call exit");
-            return finalisedTx.getTx().outputsOfType(RockPaperScissorsSettledState.class).get(0).getLinearId();
-        }
-        
-    }
-*/
     @InitiatedBy(AcknowledgeAcceptanceFlow.class)
     public static class FinalisedSettlementFlow extends FlowLogic<SignedTransaction> {
         private FlowSession counterpartySession;
+
         public FinalisedSettlementFlow(FlowSession counterpartySession) {
-            this.counterpartySession=counterpartySession;
+            this.counterpartySession = counterpartySession;
         }
+
         @Suspendable
         @Override
         public SignedTransaction call() throws FlowException {
-            System.out.println("FinalisedSettlementFlow call enter");
-            SignedTransaction signedTransaction=subFlow(new SignTransactionFlow(counterpartySession){
+            System.out.println("FinalisedSettlementFlow call enter " + counterpartySession.getCounterparty());
+            SignedTransaction signedTransaction = subFlow(new SignTransactionFlow(counterpartySession) {
                 @Suspendable
-				@Override
-				protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
-					// TODO Auto-generated method stub
-                    //StateRef stateRef=signedTransaction.getInputs().get(0);
-                    //System.out.println("StateRef "+stateRef);
-				}
-                
+                @Override
+                protected void checkTransaction(SignedTransaction signedTransaction) throws FlowException {
+                    // TODO Auto-generated method stub
+                    // StateRef stateRef=signedTransaction.getInputs().get(0);
+                    // System.out.println("StateRef "+stateRef);
+                }
+
             });
-            SignedTransaction finalisedTx = subFlow(new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
-            System.out.println("FinalisedSettlementFlow call exit");
+            SignedTransaction finalisedTx = subFlow(
+                    new ReceiveFinalityFlow(counterpartySession, signedTransaction.getId()));
+            System.out.println("FinalisedSettlementFlow call exit " + getOurIdentity());
             return finalisedTx;
         }
+    }
+
+    static StateAndRef<LinearState> fetch(Class cl, UUID lid, ServiceHub serviceHub) {
+        QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria(null, ImmutableList.of(lid));
+        Page<LinearState> vaultQuery = serviceHub.getVaultService().queryBy(LinearState.class, criteria);
+        List<StateAndRef<LinearState>> states = vaultQuery.getStates();
+        for (StateAndRef<LinearState> state : states) {
+            if (state.getState().getData().getClass().equals(cl)) {
+                return state;
+            }
+        }
+        return null;
+    }
+
+    static List<StateAndRef<LinearState>> fetchAll(UUID lid, ServiceHub serviceHub) {
+        QueryCriteria criteria = new QueryCriteria.LinearStateQueryCriteria(null, ImmutableList.of(lid));
+        Page<LinearState> vaultQuery = serviceHub.getVaultService().queryBy(LinearState.class, criteria);
+        return vaultQuery.getStates();
     }
 }
