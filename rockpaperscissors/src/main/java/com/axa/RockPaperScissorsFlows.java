@@ -80,6 +80,8 @@ public class RockPaperScissorsFlows {
             List<Party> otherParties = output.getParticipants().stream().map(el -> (Party) el)
                     .collect(Collectors.toList());
             otherParties.remove(getOurIdentity());
+            //I'm leaving this here for future reference - it's the syntax required when an initiating
+            //a flow to multiple parties, I believe.
             // List<FlowSession> sessions = otherParties.stream().map(el ->
             // initiateFlow(el)).collect(Collectors.toList());
             FlowSession sessions = initiateFlow(escrow);
