@@ -71,7 +71,7 @@ public class RockPaperScissorsFlows {
                     escrow);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
-            builder.addOutputState(output);
+            builder.addOutputState(output, RockPaperScissorsContract.ID);
             // At this point, the signatories are the challenger and the escrow agent.
             List<PublicKey> signatories = Arrays.asList(this.sender.getOwningKey(), this.escrow.getOwningKey());
             builder.addCommand(new RockPaperScissorsContract.Commands.Issue(), signatories);
@@ -136,7 +136,7 @@ public class RockPaperScissorsFlows {
                     rockPaperScissorsIssuedState.getEscrow(), rockPaperScissorsIssuedState.getLinearId());
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
             final TransactionBuilder builder = new TransactionBuilder(notary);
-            builder.addOutputState(challengeState);
+            builder.addOutputState(challengeState, RockPaperScissorsContract.ID);
 
             // Input state. This mess is just to acquire the previous state, because the
             // argument to addInputState
@@ -249,11 +249,11 @@ public class RockPaperScissorsFlows {
             this.sender = getOurIdentity();
             final Party notary = getServiceHub().getNetworkMapCache().getNotaryIdentities().get(0);
             UniqueIdentifier uniqueIdentifier = new UniqueIdentifier(linearId);
-            final RockPaperScissorsAcceptedState output = new RockPaperScissorsAcceptedState(choice, sender, challenged,
+            final RockPaperScissorsAcceptedState output = new RockPaperScissorsAcceptedState(choice, challenged,
                     escrow, uniqueIdentifier);
             final TransactionBuilder builder = new TransactionBuilder(notary);
 
-            builder.addOutputState(output);
+            builder.addOutputState(output, RockPaperScissorsContract.ID);
             // At this point, the signatories are the challenged party and the escrow agent.
             List<PublicKey> signatories = Arrays.asList(this.sender.getOwningKey(), this.escrow.getOwningKey());
             builder.addCommand(new RockPaperScissorsContract.Commands.Accept(), signatories);

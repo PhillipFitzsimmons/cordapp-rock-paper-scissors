@@ -14,7 +14,6 @@ import net.corda.core.serialization.ConstructorForDeserialization;
 @BelongsToContract(RockPaperScissorsContract.class)
 public class RockPaperScissorsAcceptedState implements LinearState {
     private final String challengedChoice;
-    private final Party challenger;
     private final Party challenged;
     private final Party escrow;
     private UniqueIdentifier uniqueIdentifier;
@@ -24,31 +23,17 @@ public class RockPaperScissorsAcceptedState implements LinearState {
         return Arrays.asList(challenged, escrow);
     }
     @ConstructorForDeserialization
-    public RockPaperScissorsAcceptedState(String challengedChoice, Party challenger, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {
+    public RockPaperScissorsAcceptedState(String challengedChoice, Party challenged, Party escrow, UniqueIdentifier uniqueIdentifier) {
         this.challengedChoice = challengedChoice;
-        this.challenger = challenger;
         this.challenged = challenged;
         this.escrow=escrow;
         System.out.println("RockPaperScissorsAcceptedState constructor "+uniqueIdentifier);
         this.uniqueIdentifier=uniqueIdentifier;
     }
-    /*public RockPaperScissorsAcceptedState(String challengedChoice, Party challenger, Party challenged, Party escrow) {
-        this.challengedChoice = challengedChoice;
-        this.challenger = challenger;
-        this.challenged = challenged;
-        this.escrow=escrow;
-        System.out.println("RockPaperScissorsAcceptedState constructor is being called for some reason");
-        this.uniqueIdentifier=new UniqueIdentifier();
-    }*/
 
     public String getChallengedChoice() {
         return challengedChoice;
     }
-
-    public Party getChallenger() {
-        return challenger;
-    }
-
     public Party getChallenged() {
         return challenged;
     }

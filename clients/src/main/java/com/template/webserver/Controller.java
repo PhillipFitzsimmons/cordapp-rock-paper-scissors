@@ -198,7 +198,7 @@ public class Controller {
             } else if (linearState instanceof RockPaperScissorsAcceptedState) {
                 RockPaperScissorsAcceptedState issuedState=(RockPaperScissorsAcceptedState)linearState;
                 map.put("challenged",partyToMap(issuedState.getChallenged()));
-                map.put("challenger",partyToMap(issuedState.getChallenger()));
+                //map.put("challenger",partyToMap(issuedState.getChallenger()));
                 map.put("escrow",partyToMap(issuedState.getEscrow()));
                 map.put("challengedChoice",issuedState.getChallengedChoice());
                 result.put("AcceptedState", map);
