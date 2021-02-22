@@ -272,7 +272,7 @@ public class RockPaperScissorsFlows {
 
     }
     /**
-     * This poorly name flow is actually the last flow, and it's sent from the Challenged party
+     * This poorly named is sent from the Challenged party
      * to the Escrow party, who calculates the winner and then gets all parties to sign the final state
      * and all outstanding input states.
      */
@@ -361,7 +361,7 @@ public class RockPaperScissorsFlows {
             The problem was that I was consuming them in the wrong place - in a transaction in which the signatories to the
             input states weren't present.
             So in this, the final transaction, I get all outstanding (unconsumed) states and add them to this transaction as inputs.
-            It remains to be determined if it doesn't make more sense - in so far as implement Rock Paper Scissors in Corda makes sense -
+            It remains to be determined if it doesn't make more sense - in so far as implementing Rock Paper Scissors in Corda makes sense -
             if some of these states - notably the IssuedState - shouldn't be consumed when it's just between the Escrow Agent and Challenger,
             but this is now working and hence seems like a good place for a commit to git.
             */
@@ -383,7 +383,6 @@ public class RockPaperScissorsFlows {
             SignedTransaction signatureTransaction = subFlow(
                     new CollectSignaturesFlow(signedChallengeTransaction, sessions));
             subFlow(new FinalityFlow(signatureTransaction, sessions));
-            // return finalisedTx;
             /// And then finalise
             System.out.println("AcknowledgeAcceptanceFlow about to finalise " + counterpartySession);
             SignedTransaction finalFinalisedTx = subFlow(
